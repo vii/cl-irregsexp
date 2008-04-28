@@ -1,7 +1,7 @@
 (in-package #:cl-irregsexp)
 
 (defconstant +match-bind-operator-abbreviations+
-  '((- . match-element-range)
+  '(
     (+ . match-one-or-more)
     (* . match-zero-or-more)
     (progn . progn)
@@ -12,7 +12,9 @@
 
 
 (defconstant +match-bind-function-abbreviations+
-  '((integer . match-integer)
+  '(
+    (- . match-element-range)
+    (integer . match-integer)
     (space . match-one-whitespace)
     (last . match-end)
     (char . eat)

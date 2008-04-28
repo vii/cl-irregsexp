@@ -2,6 +2,7 @@
   (:use #:common-lisp)
   (:import-from #:cl-utilities #:with-unique-names #:once-only)
   (:export 
+   #:match-failed
    #:match-bind
    #:if-match-bind
    #:match-replace-all

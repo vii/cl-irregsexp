@@ -15,9 +15,17 @@
 				     (:file "harness" :depends-on ("packages"))
 				     (:file "helpers" :depends-on ("harness"))
 				     (:file "bind" :depends-on ("helpers"))
-				     (:file "replace" :depends-on ("bind")))))
+				     (:file "replace" :depends-on ("bind"))))
+	       (:module :t
+			:components (
+				     (:file "suite")
+				     (:file "helpers" :depends-on ("suite"))
+				     (:file "bind" :depends-on ("suite")))
+			:depends-on (:src))
+	       )
 
   :depends-on (
+	       :fiveam
 	       :cl-utilities
 	       :iterate))
 			

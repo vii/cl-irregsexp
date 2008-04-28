@@ -68,7 +68,12 @@
   (with-match ("word")
     (5am:finishes
       (match-multiple () (match-element-range #\a #\z))
-      (match-end))))
+      (match-end)))
+  (with-match ("Xword")
+    (match-multiple () (match-element-range #\a #\z))
+    (match-end)
+    (5am:fail)))
+
 
 (5am:test match-not
   (with-match ("not")

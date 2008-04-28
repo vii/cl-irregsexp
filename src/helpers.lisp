@@ -14,11 +14,10 @@
 (defun-speedy literal (v)
   (let ((value (force-sequence v)))
     (let ((target (peek (length value))))
-      (loop for i from (1- (length value)) downto 0 
+      (loop for i below (length value)
 	    unless (= (to-int (elt target i)) (to-int (elt value i)))
 	    do (fail)))
-    (eat (length value))
-    value))
+    (eat (length value))))
 
 (defmacro try-match (&body body)
   (with-unique-names (saved-pos try-match-block)
