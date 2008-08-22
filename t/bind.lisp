@@ -22,5 +22,5 @@
 	       (header-name (progn (* (space)) ":") (* (space)) value)
 	       line
 	     (list header-name value))))
-    (equalp (r "Connection: close") (list "Connection" "close"))
-    (equalp (r "Transfer-encoding:     chunked") (list "Transfer-encoding" "chunked"))))
+    (5am:is (equalp (r "Connection: close") (list "Connection" "close")))
+    (5am:is (equalp (r "Transfer-encoding:     chunked") (list "Transfer-encoding" "chunked")))))

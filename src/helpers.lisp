@@ -50,33 +50,70 @@
 	       `(progn (setf *pos* ,saved-pos)
 		       ,opt)))))
 
+(defun flatten-progn-forms (matches) 
+  (when (eq (first matches) 'progn)
+    (setf matches (rest matches)))
+  (loop for i in matches
+	append 
+	(cond
+	  ((not i) nil)
+	  ((and (listp i) (eq 'progn (first i)))
+	   (flatten-progn-forms i))
+	  (t
+	   (list i)))))
+
+
+(defun isolate-fixed-length-prefix (matches)
+  (isolate-bm-prefix (flatten-progn-forms matches)))
+
+(defun isolate-bm-prefix (matches)
+  (cond 
+    ((and (= 1 (length matches))
+	  (listp (first matches))
+	  (eq 'literal (first (first matches)))
+	  (constantp (second (first matches))))
+     (values (second (first matches))
+	     nil))
+    (t
+     (values nil matches))))
+
 (defmacro match-until-internal (&rest matches)
   (cond 
     ((or (equalp '((match-end)) matches) (equalp '((progn (match-end))) matches))
-     `(match-remaining))
+     `(values *pos* (length *target*)))
     (t
-     (with-unique-names (start end)
+     (multiple-value-bind 
+	   (bm-spec other-matches)
+	 (isolate-fixed-length-prefix matches)
+     (with-unique-names (start end restart)
        `(let ((,start *pos*) (,end *pos*))
-	  (loop while 
-		(eq 'match-until-continue 
-		    (match-any 
-		     ,@matches
-		     (progn (eat 1) (incf ,end) 'match-until-continue))))
-	  (values (subseq *target* ,start ,end) ,start ,end))))))
+	  (tagbody
+	     ,restart
+	     ,(when bm-spec
+		    `(setf ,end
+			   ,(generate-bm-matcher bm-spec)))
+	     ,(when other-matches
+		    `(match-any 
+		      (progn ,@other-matches)
+		      (progn (eat 1) (incf ,end) (go ,restart)))))
+	  (values ,start ,end)))))))
 
 (defmacro match-until-and-eat (&rest matches)
-  `(prog1 (match-until-internal ,@matches)))
+  (with-unique-names (start end)
+    `(multiple-value-bind (,start ,end) 
+	 (match-until-internal ,@matches)
+       (subseq *target* ,start ,end))))
 
 (defun-speedy match-remaining ()
   (eat (len-available)))
 
 (defmacro match-until (&rest matches)
-  (with-unique-names (ret start end)
-    `(multiple-value-bind (,ret ,start ,end)
+  (with-unique-names (start end)
+    `(multiple-value-bind (,start ,end)
 	 (match-until-internal ,@matches)
        (declare (ignore ,start))
        (setf *pos* ,end)
-       ,ret)))
+       (subseq *target* ,start ,end))))
 
 (defmacro match-not (&rest matches)
   (with-unique-names (match-not-block)

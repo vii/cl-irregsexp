@@ -13,14 +13,16 @@
 			:components (
 				     (:file "packages")
 				     (:file "harness" :depends-on ("packages"))
-				     (:file "helpers" :depends-on ("harness"))
+				     (:file "helpers" :depends-on ("harness" "bm"))
 				     (:file "bind" :depends-on ("helpers"))
+				     (:file "bm" :depends-on ("harness"))
 				     (:file "replace" :depends-on ("bind"))))
 	       (:module :t
 			:components (
 				     (:file "suite")
 				     (:file "helpers" :depends-on ("suite"))
-				     (:file "bind" :depends-on ("suite")))
+				     (:file "bind" :depends-on ("suite"))
+				     (:file "find" :depends-on ("suine")))
 			:depends-on (:src))
 	       )
 
