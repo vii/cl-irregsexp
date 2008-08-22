@@ -22,7 +22,7 @@
 				     (:file "suite")
 				     (:file "helpers" :depends-on ("suite"))
 				     (:file "bind" :depends-on ("suite"))
-				     (:file "find" :depends-on ("suine")))
+				     (:file "find" :depends-on ("suite")))
 			:depends-on (:src))
 	       )
 
