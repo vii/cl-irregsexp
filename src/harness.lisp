@@ -1,12 +1,5 @@
 (in-package #:cl-irregsexp)
 
-(defmacro defun-speedy (name lambda-list &body body)
-  `(progn
-     (defun ,name ,lambda-list
-       (declare (optimize speed))
-       ,@body)
-     (declaim (inline ,name))))
-
 (defvar *fail* (lambda()))
 (declaim (type (function () ()) *fail*))
 
@@ -43,19 +36,94 @@
   (declare (type fixnum len))
   (incf *pos* len))
 
-(defun-speedy force-simple-vector (seq)
-  (etypecase seq
-    (simple-vector seq)
-    (vector
-     (make-array (length seq) :element-type (array-element-type seq) :initial-contents seq))
-    (sequence
-     (make-array (length seq) :initial-contents seq))))
 
-(defun-speedy force-simple-string (seq)
-  (etypecase seq
-    (simple-string seq)
-    (sequence
-     (replace (make-string (length seq)) seq))))
+
+(defun-speedy to-int (val)
+  (etypecase val
+    (integer val)
+    (character (char-code val))))
+
+(defun-speedy to-int-target-elt (p)
+  (to-int (elt *target* p)))
+
+(defmacro force-to-target-sequence (v)
+  `(force-sequence ,v))
+
+(defun-speedy literal-slow (v)
+  (let ((value (force-to-target-sequence v)))
+    (when (> (length value) (len-available))
+      (fail))
+    (loop for i below (length value)
+	  unless (= (to-int-target-elt (+ *pos* i)) (to-int (elt value i)))
+	  do (fail))
+    (eat-unchecked (length value))))
+
+(defmacro literal (v)
+  `(literal-slow ,v))
+
+(defun specialised-func-symbol (func type)
+  (intern (concatenate 'string (symbol-name func) "-" (symbol-name type)) #.(package-name *package*)))
+
+(defmacro literal-simple-byte-vector (v)
+  (cond ((constantp v)
+	 (let ((bv (force-byte-vector v)))
+	   `(progn
+	      (when (> ,(length bv) (len-available))
+		(fail))
+	      (unless (and ,@(loop for i below (length bv) collect
+				   `(= ,(aref bv i) (to-int-target-elt (+ *pos* ,i)))))
+		(fail))
+	      (eat-unchecked ,(length bv)))))
+	(t `(literal-slow ,v))))
+
+(defmacro to-int-target-elt-simple-byte-vector (i)
+  `(aref (the simple-byte-vector *target*) (the fixnum ,i)))
+
+
+(defmacro literal-simple-string (v)
+  (cond ((constantp v)
+	 (let ((bv (force-simple-string v)))
+	   `(progn
+	      (when (> ,(length bv) (len-available))
+		(fail))
+	      (unless (and ,@(loop for i below (length bv) collect
+				   `(= ,(char-code (aref bv i)) (to-int-target-elt (+ *pos* ,i)))))
+		(fail))
+	      (eat-unchecked ,(length bv)))))
+	(t `(literal-slow ,v))))
+
+(defmacro to-int-target-elt-simple-string (i)
+  `(char-code (schar *target* (the fixnum ,i))))
+
+
+
+(defmacro literal-simple-vector (v)
+  (cond ((constantp v)
+	 (let ((bv (force-simple-vector v)))
+	   `(progn
+	      (when (> ,(length bv) (len-available))
+		(fail))
+	      (unless (and ,@(loop for i below (length bv) collect
+				   `(= ,(to-int (aref bv i)) (to-int-target-elt (+ *pos* ,i)))))
+		(fail))
+	      (eat-unchecked ,(length bv)))))
+	(t `(literal-slow ,v))))
+
+(defmacro to-int-target-elt-simple-vector (i)
+  `(to-int (svref *target* (the fixnum ,i))))
+
+
+(defmacro with-match-env ( (type target) &body body)
+  (check-type type symbol)
+  `(macrolet ((force-to-target-sequence (v)
+		`(,',(specialised-func-symbol 'force type) ,v)))
+     (macrolet ((to-int-target-elt (v)
+		  `(,',(specialised-func-symbol 'to-int-target-elt type) ,v)))
+       (macrolet ((literal (v)
+		    `(,',(specialised-func-symbol 'literal type) ,v)))
+	 (let ((*target* (force-to-target-sequence ,target)))
+	   (declare (type ,type *target*))
+	   ,@body)))))
 
 (defmacro with-match ( (target &key (on-failure ''match-failed) ) &body body)
   (with-unique-names (match-block)
@@ -67,11 +135,12 @@
 	       (*fail* (lambda() (return-from ,match-block ,on-failure))))
 	     (declare (type fixnum *pos*))
 	     (typecase ,target
+	       (byte-vector
+		(with-match-env (simple-byte-vector ,target)
+		  ,@body))
 	       (string
-		(let ((*target* (force-simple-string ,target)))
-		  (declare (type simple-string *target*))
+		(with-match-env (simple-string ,target)
 		  ,@body))
 	       (t
-		(let ((*target* (force-simple-vector ,target)))
-		  (declare (type simple-vector *target*))
+		(with-match-env (simple-vector ,target)
 		  ,@body)))))))))

@@ -5,7 +5,6 @@
   <head>
     <title>cl-irregsexp</title>
     <link rel="stylesheet" type="text/css" href="style.css"/>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
   </head>
   
   <body>
@@ -17,7 +16,7 @@
     
     <h3>Introduction</h3>
     
-    <p>This project is an ASDF-installable library for fast text
+    <p>cl-irregsexp is an ASDF-installable library for fast text
       matching. It goes beyond the facilities allowed by traditional
       regular expressions, while also making the matchers easier to
       write and maintain. </p>
@@ -25,12 +24,12 @@
     <h3>Why?</h3>
 
     <p>Traditional regexps are everywhere and well-understood. There are
-      already <A href="http://www.cliki.net/regular expression">several
-	fine regular expression toolkits for Common Lisp</A>. They are both
+      already <a href="http://www.cliki.net/regular expression">several
+	fine regular expression toolkits for Common Lisp</a>. They are both
       complete and mature.  Why use cl-irregsexp?</p>
 
     <ul>
-      <li>The syntax: instead of writing (for an example with <A href="http://www.weitz.de/cl-ppcre/">cl-ppcre</A>)
+      <li>The syntax: instead of writing (with <a href="http://www.weitz.de/cl-ppcre/">cl-ppcre</a>)
 	<pre>(register-groups-bind (method url version-major version-minor) 
 	  ("(\\S+)\\s+(\\S+)\\s+HTTP/(\\d+).(\\d+)$" line)
 	  ...)
@@ -39,12 +38,12 @@
 	<pre>(match-bind (method (+ (space)) url (+ (space)) "HTTP/" (version-major (integer)) "." (version-minor (integer)) (last))  
           line 
 	  ...)</pre>
-	Which might be clearer and doesn't involve mentioning the
+	which might be clearer and doesn't involve mentioning the
 	captured variables twice.</li>
       <li>cl-irregsexp works seamlessly on both arrays of integers and on strings.</li>
       <li>cl-irregsexp has excellent performance (for some operations) using
-	open-coded <A href="http://en.wikipedia.org/wiki/Boyer_–_Moore_string_search_algorithm">Boyer-Moore
-	  matchers</A>.</li>
+	open-coded <a href="http://en.wikipedia.org/wiki/Boyer_-_Moore_string_search_algorithm">Boyer-Moore
+	  matchers</a>.</li>
     </ul>
 
     <h3>Why not?</h3>
@@ -53,24 +52,26 @@
       <li>No documentation.</li>
       <li>The syntax is weird. For fast, complete and mature Perl
 	compatible regexps check
-	out <A href="http://www.weitz.de/cl-ppcre/">cl-ppcre</A> for
-	example, or <A href="http://code.google.com/p/terse-ppcre/">terse-ppcre</A>.</li>
+	out <a href="http://www.weitz.de/cl-ppcre/">cl-ppcre</a> for
+	example, or <a href="http://code.google.com/p/terse-ppcre/">terse-ppcre</a>.</li>
       <li>Things are still in early stages. Anything
 	might change, even the name.</li>
       <li>Lack of testing and features.</li></ul>
 
     <h3>Help!</h3>
     <ul>
-      <li>A better name!</li>
-      <li>Improved syntax.</li>
+      <li>Suggest a better name!</li>
+      <li>Improve the syntax.</li>
+      <li>Write documentation.</li>
+      <li>Add more features.</li>
     </ul>
 
     <p> Write to the 
-      <a href="http://www.common-lisp.net/mailman/listinfo/cl-irregsexp-devel">CL-IRREGSEXP-devel</a> mailing list. Or add to the <A href="http://www.cliki.net/cl-irregsexp">wiki</A>. </p>
+      <a href="http://www.common-lisp.net/mailman/listinfo/cl-irregsexp-devel">CL-IRREGSEXP-devel</a> mailing list. Or add to the <a href="http://www.cliki.net/cl-irregsexp">wiki</a>. </p>
 
     <h3>Download</h3>
 
-    <p>Here are some <A href="downloads/">snapshots</A>.</p>
+    <p>Here are some <a href="downloads/">snapshots</a>.</p>
 
     <h3>Project members</h3>
     <pre><!--#include virtual="../../pprinted-project-members/cl-irregsexp" --></pre>

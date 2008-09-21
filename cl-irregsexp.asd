@@ -12,22 +12,18 @@
 	       (:module :src
 			:components (
 				     (:file "packages")
-				     (:file "harness" :depends-on ("packages"))
+				     (:file "macros" :depends-on ("packages"))
+				     (:file "byte-vector" :depends-on ("packages"))
+				     (:file "utf8" :depends-on ("macros" "byte-vector"))
+				     (:file "force"  :depends-on ("utf8"))
+				     (:file "harness" :depends-on ("force"))
 				     (:file "helpers" :depends-on ("harness" "bm"))
 				     (:file "bind" :depends-on ("helpers"))
 				     (:file "bm" :depends-on ("harness"))
-				     (:file "replace" :depends-on ("bind"))))
-	       (:module :t
-			:components (
-				     (:file "suite")
-				     (:file "helpers" :depends-on ("suite"))
-				     (:file "bind" :depends-on ("suite"))
-				     (:file "find" :depends-on ("suite")))
-			:depends-on (:src))
-	       )
-
+				     (:file "replace" :depends-on ("bind")))))
   :depends-on (
-	       :fiveam
-	       :cl-utilities
-	       :iterate))
+	       :iterate
+	       :cl-utilities))
+
+
 			

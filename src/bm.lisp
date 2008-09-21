@@ -6,7 +6,7 @@
 	     (typecase c
 	       (sequence (map nil #'add c))
 	       (t
-		(push i (gethash (to-int c) table))))))
+		(push (to-int i) (gethash (to-int c) table))))))
       (map nil (lambda(c)
 		 (add c)
 		 (incf i)) bm-spec))
@@ -38,7 +38,7 @@
 					    when m
 					    collect `(,k ,(apply 'min m)))
 				    (t ,(1+ i)))))
-			`(let ((,c (to-int (elt *target* (+ ,offset ,i)))))
+			`(let ((,c (to-int-target-elt (+ ,offset ,i))))
 			   (declare (type fixnum ,c))
 ;;			   (format t "~D ~D have ~A want ~A ~A ~D~&" ,offset (+ ,offset ,i) (code-char ,c) (code-char ,(to-int (elt bm-spec i))) (= ,c ,(to-int (elt bm-spec i))) ,(skip-lookup i c))
 			   (unless (= ,c ,(to-int (elt bm-spec i)))

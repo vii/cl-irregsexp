@@ -1,23 +1,5 @@
 (in-package #:cl-irregsexp)
 
-(defun-speedy to-int (val)
-  (etypecase val
-    (integer val)
-    (character (char-code val))))
-
-(defun-speedy force-sequence (val)
-  (etypecase val
-    (sequence val)
-    (character (string val))
-    (number (vector val))))
-
-(defun-speedy literal (v)
-  (let ((value (force-sequence v)))
-    (let ((target (peek (length value))))
-      (loop for i below (length value)
-	    unless (= (to-int (elt target i)) (to-int (elt value i)))
-	    do (fail)))
-    (eat (length value))))
 
 (defmacro try-match (&body body)
   (with-unique-names (saved-pos try-match-block)
@@ -42,6 +24,7 @@
 					 (return-from ,match-any-fail-block))))
 			  (return-from ,match-any-block ,opt)))))
 	   ,@(last options))))))
+
 
 (defmacro match-all (&rest options)
   (with-unique-names (saved-pos)
@@ -153,8 +136,8 @@
   (unless (zerop (len-available))
     (fail)))
 
-(defun-speedy match-one-whitespace ()
-  (match-any (literal #\Space) (literal #\Tab) (literal #\Linefeed) (literal #\Return) (literal #\Page)))
+(defmacro match-one-whitespace ()
+  `(match-any (literal #\Space) (literal #\Tab) (literal #\Linefeed) (literal #\Return) (literal #\Page)))
 
 (defun match-integer (&optional (base 10))
   (let ((sign (if (= (to-int #\-) (to-int (peek-one))) (progn (eat 1) -1) 1)) (val 0) success)
