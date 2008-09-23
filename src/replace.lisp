@@ -20,16 +20,19 @@
     `(concat ,string (multiple-value-list (match-replace-helper ,string ,@match-replacements)))))
 
 (defmacro match-replace-all (string &rest match-replacements)
-  (with-unique-names (s b r a)
+  (with-unique-names (s b r a f)
     `(let ((,s ,string))
-       (concat ,s
-	       (iter:iter 
-		 (multiple-value-bind (,b ,r ,a)
-		     (match-replace-helper ,s ,@match-replacements)
-		   (unless (zerop (length ,b)) (iter:collect ,b))
-		   (unless (zerop (length ,r)) (iter:collect ,r))
-		   (iter:until (zerop (length ,a)))
-		   (setf ,s ,a)))))))
+       (flet ((,f () ; move out of the iter:iter so we can use macrolet without warnings
+		(match-replace-helper ,s ,@match-replacements)))
+	 (declare (inline ,f))
+	 (concat ,s
+		 (iter:iter 
+		   (multiple-value-bind (,b ,r ,a)
+		       (,f)
+		     (unless (zerop (length ,b)) (iter:collect ,b))
+		     (unless (zerop (length ,r)) (iter:collect ,r))
+		     (iter:until (zerop (length ,a)))
+		     (setf ,s ,a))))))))
 
 
 	  

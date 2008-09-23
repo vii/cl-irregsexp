@@ -70,10 +70,11 @@
 
 
 (defun-speedy force-sequence (val)
-  (etypecase val
+  (typecase val
     (sequence val)
     (character (string val))
-    (number (vector val))))
+    (number (vector val))
+    (t (list val))))
 
 
 (defun-consistent force-simple-vector (v)

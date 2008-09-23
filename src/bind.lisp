@@ -38,9 +38,9 @@
 		   (generate-match-bind (copy-list bindings) env)
 		 (setf vars (append vars v))
 		 f)))
-      (loop while bindings
-	    for form = (pop bindings)
-	    do (cond ((not form))
+      (loop while bindings do
+	(let ((form (pop bindings)))
+	  (cond ((not form))
 		      ((symbolp form)
 		       (push form vars)
 		       (push `(setf ,form 
@@ -58,7 +58,7 @@
 			       (push `(setf ,(first form) ,@(recurse (list (second form)))) forms))))
 			((constantp form env)
 			 (push `(literal ,form) forms))
-		       (t (error "Untranslatable form ~A" form)))))
+		       (t (error "Untranslatable form ~A" form))))))
       (values (reverse forms) vars)))
 
 (defmacro match-bind-internal (args-for-with-match bindings &body body &environment env)
