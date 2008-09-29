@@ -68,18 +68,18 @@
      (multiple-value-bind 
 	   (bm-spec other-matches)
 	 (isolate-fixed-length-prefix matches)
-     (with-unique-names (start end restart)
-       `(let ((,start *pos*) (,end *pos*))
-	  (tagbody
-	     ,restart
-	     ,(when bm-spec
-		    `(setf ,end
-			   ,(generate-bm-matcher bm-spec)))
-	     ,(when other-matches
-		    `(match-any 
-		      (progn ,@other-matches)
-		      (progn (eat 1) (incf ,end) (go ,restart)))))
-	  (values ,start ,end)))))))
+       (with-unique-names (start end restart)
+	 `(let ((,start *pos*) (,end *pos*))
+	    (tagbody
+	       ,restart
+	       ,(when bm-spec
+		      `(setf ,end
+			     ,(generate-bm-matcher bm-spec)))
+	       ,(when other-matches
+		      `(match-any 
+			(progn ,@other-matches)
+			(progn (eat 1) (incf ,end) (go ,restart)))))
+	    (values ,start ,end)))))))
 
 (defmacro match-until-and-eat (&rest matches)
   (with-unique-names (start end)
@@ -108,6 +108,7 @@
 
 (defun-speedy match-element-range (start-inclusive end-inclusive)
   (let ((s (to-int start-inclusive)) (e (to-int end-inclusive)) (v (to-int (peek-one))))
+    (declare (type fixnum s e v))
     (unless (>= e v s)
       (fail))
     (eat 1)))
@@ -139,23 +140,35 @@
 (defmacro match-one-whitespace ()
   `(match-any (literal #\Space) (literal #\Tab) (literal #\Linefeed) (literal #\Return) (literal #\Page)))
 
-(defun match-integer (&optional (base 10))
-  (let ((sign (if (= (to-int #\-) (to-int (peek-one))) (progn (eat 1) -1) 1)) (val 0) success)
-    (declare (type (member 1 -1) sign))
-    (declare (type (integer 2 36) base))
-    (declare (type unsigned-byte val))
-    (flet ((range (a c b &optional (offset 0))
-	     (when (<= (to-int a) (to-int c) (to-int b))
-	       (+ offset (- (to-int c) (to-int a))))))
-      (loop for digit = 
-	    (let ((c (to-int (peek-one))))
-	      (or (range #\0 c #\9) (range #\A c #\Z 10) (range #\a c #\z 10)))
-	    while (and digit (> base digit))
-	    do
-	    (setf success t)
-	    (setf val (+ digit (* val base) ))
-	    (eat 1)
-	    until (zerop (len-available)))
-      (unless success
-	(fail))
-      (* val sign))))
+(defmacro match-integer (&optional (base 10))
+  (once-only (base)
+    `(progn
+       (when (> 1 (len-available))
+	 (fail))
+       (let ((sign (if (= (to-int #\-) (to-int-target-elt *pos*)) 
+		       (progn (eat-unchecked 1)
+			      (when (> 1 (len-available))
+				(fail))
+			      -1) 
+		       1)) 
+	     (val 0) 
+	     success)
+	 (declare (type (member 1 -1) sign))
+	 (declare (type (integer 2 36) ,base))
+	 (declare (type unsigned-byte val))
+	 (flet ((range (a c b &optional (offset 0))
+		  (when (<= (to-int a) (to-int c) (to-int b))
+		    (+ offset (- (to-int c) (to-int a))))))
+	   (declare (inline range))
+	   (loop for digit = 
+		 (let ((c (to-int-target-elt *pos*)))
+		   (or (range #\0 c #\9) (range #\A c #\Z 10) (range #\a c #\z 10)))
+		 while (and digit (> ,base digit))
+		 do
+		 (setf success t)
+		 (setf val (+ digit (* val ,base) ))
+		 (eat-unchecked 1)
+		 until (zerop (len-available)))
+	   (unless success
+	     (fail))
+	   (* val sign))))))
