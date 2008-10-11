@@ -1,7 +1,7 @@
 (in-package #:cl-irregsexp)
 
 (defvar *fail* (lambda()))
-(declaim (type (function () ()) *fail*))
+; (declaim (type (function () ()) *fail*))
 
 (defun-speedy fail ()
   (funcall *fail*))
@@ -33,14 +33,12 @@
     (eat-unchecked len)))
 
 (defun-speedy eat-unchecked (&optional (len 1))
-  (declare (type fixnum len))
+  (declare (type fixnum len *pos*))
   (incf *pos* len))
-
-
 
 (defun-speedy to-int (val)
   (etypecase val
-    (integer val)
+    (fixnum val)
     (character (char-code val))))
 
 (defun-speedy to-int-target-elt (p)
@@ -53,8 +51,8 @@
   (let ((value (force-to-target-sequence v)))
     (when (> (length value) (len-available))
       (fail))
-    (loop for i below (length value)
-	  unless (= (to-int-target-elt (+ *pos* i)) (to-int (elt value i)))
+    (loop for i fixnum below (length value)
+	  unless (= (to-int-target-elt (the fixnum (+ (the fixnum *pos*) i))) (to-int (elt value i)))
 	  do (fail))
     (eat-unchecked (length value))))
 
@@ -76,8 +74,8 @@
 	      (eat-unchecked ,(length bv)))))
 	(t `(literal-slow ,v))))
 
-(defmacro to-int-target-elt-simple-byte-vector (i)
-  `(aref (the simple-byte-vector *target*) (the fixnum ,i)))
+(defun-speedy to-int-target-elt-simple-byte-vector (i)
+  (aref (the simple-byte-vector *target*) (the fixnum i)))
 
 
 (defmacro literal-simple-string (v)
@@ -92,8 +90,8 @@
 	      (eat-unchecked ,(length bv)))))
 	(t `(literal-slow ,v))))
 
-(defmacro to-int-target-elt-simple-string (i)
-  `(char-code (schar *target* (the fixnum ,i))))
+(defun-speedy to-int-target-elt-simple-string (i)
+  (char-code (schar *target* (the fixnum i))))
 
 
 
@@ -109,38 +107,40 @@
 	      (eat-unchecked ,(length bv)))))
 	(t `(literal-slow ,v))))
 
-(defmacro to-int-target-elt-simple-vector (i)
-  `(to-int (svref *target* (the fixnum ,i))))
-
+(defun-speedy to-int-target-elt-simple-vector (i)
+  (to-int (svref *target* (the fixnum i))))
 
 (defmacro with-match-env ( (type target) &body body)
   (check-type type symbol)
   `(macrolet ((force-to-target-sequence (v)
-		`(,',(specialised-func-symbol 'force type) ,v)))
-     (macrolet ((to-int-target-elt (v)
-		  `(,',(specialised-func-symbol 'to-int-target-elt type) ,v)))
-       (macrolet ((literal (v)
-		    `(,',(specialised-func-symbol 'literal type) ,v)))
-	 (let ((*target* (force-to-target-sequence ,target)))
-	   (declare (type ,type *target*))
-	   ,@body)))))
+		`(,',(specialised-func-symbol 'force type) ,v))
+	      (to-int-target-elt (v)
+		`(,',(specialised-func-symbol 'to-int-target-elt type) ,v))
+	      (literal (v)
+		`(,',(specialised-func-symbol 'literal type) ,v)))
+     (let ((*target* (force-to-target-sequence ,target)))
+       (declare (type ,type *target*))
+       (declare (optimize speed))	 
+       ,@body)))
 
-(defmacro with-match ( (target &key (on-failure ''match-failed) ) &body body)
-  (with-unique-names (match-block)
+(defmacro with-match ( (target &key on-failure) &body body)
+  (with-unique-names (bv s v)
     (once-only (target)
-      `(locally
-	   (declare (optimize debug))
-	 (block ,match-block
-	   (let ((*pos* 0)
-	       (*fail* (lambda() (return-from ,match-block ,on-failure))))
-	     (declare (type fixnum *pos*))
-	     (typecase ,target
-	       (byte-vector
+      `(flet ((,bv ()
 		(with-match-env (simple-byte-vector ,target)
 		  ,@body))
-	       (string
+	      (,s ()
 		(with-match-env (simple-string ,target)
 		  ,@body))
-	       (t
-		(with-match-env (simple-vector ,target)
-		  ,@body)))))))))
+		(,v ()
+		  (with-match-env (simple-vector ,target)
+		    ,@body)))
+	 (declare (inline ,bv ,s ,v))
+	 (let ((*pos* 0)
+	       (*fail* (lambda() ,on-failure (values))))
+	   (declare (type fixnum *pos*))
+	   
+	   (typecase ,target
+	     (byte-vector (,bv))
+	     (string (,s))
+	     (t (,v))))))))
