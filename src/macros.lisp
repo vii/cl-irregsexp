@@ -27,4 +27,7 @@
      (defun ,name ,lambda-list
        (declare (optimize speed))
        ,@body)
-     (declaim (inline ,name))))
+     (declaim (inline ,name))
+     ',name))
+
+(define-modify-macro appendf (&rest lists) append)
