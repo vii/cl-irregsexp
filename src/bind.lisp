@@ -15,6 +15,7 @@
   '(
     (- . match-element-range)
     (integer . match-integer)
+    (unsigned-byte . match-unsigned-integer)
     (space . match-one-whitespace)
     (last . match-end)
     (char . eat)
@@ -29,7 +30,8 @@
 (define-condition match-failed 
     (error)
   ((match-form :initarg :matching) 
-   (target-string :initarg :string)))
+   (target-string :initarg :string))
+  (:documentation "Raised when the bindings in a match-bind do not match the target string"))
 
 (defun generate-match-bind (bindings &optional env)
   (let (vars forms)
@@ -71,12 +73,14 @@
        ,@body)))
 
 (defmacro match-bind (bindings string &body body)
+  "Try to parse STRING according to BINDINGS. If successful, execute BODY. Otherwise raise match-failed"
   (once-only (string)
     `(match-bind-internal (,string :on-failure (error 'match-failed :string ,string :matching ',bindings))
 	 ,bindings
        ,@body)))
 
 (defmacro if-match-bind (bindings string &optional (then t) (else nil))
+  "Perform a match bind, but return ELSE on failure instead of raising match-failed"
   (with-unique-names (if-match-block)
     `(block ,if-match-block
        (match-bind-internal (,string :on-failure (return-from ,if-match-block ,else))

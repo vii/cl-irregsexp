@@ -1,13 +1,14 @@
 (in-package #:cl-irregsexp)
 
-(defvar *fail* (lambda()))
-					; (declaim (type (function () ()) *fail*))
+(defvar *fail* (lambda() (error "*fail* not set")))
+;(declaim (type (function () ()) *fail*)) TODO why has this stopped working on recent SBCL 1.0.21
 
 (deftype small-positive-integer ()
   `(integer 0 ,(floor most-positive-fixnum 3)))
 
 (defun-speedy fail ()
-  (funcall *fail*))
+  (funcall *fail*)
+  (error "*fail* must not return"))
 
 (defvar *target* "")
 (defvar *pos* 0)
@@ -55,14 +56,9 @@
 
 (with-define-specialized-match-functions
   (defmacro force-to-target-sequence (v)
-    `(force ,v)))
-
-
-(with-define-specialized-match-functions
-  (defmacro force-to-target-sequence (v)
     `(force ,v))
   
-  (defun force-to-target-element-type (c)
+  (defun-speedy force-to-target-element-type (c)
     (let ((s (force-to-target-sequence c)))
       (assert (= 1 (length s)))
       (elt s 0)))
@@ -74,24 +70,7 @@
 	    unless (eql (peek-one-unchecked i) (elt value i))
 	    do (fail))
       (eat-unchecked (length value))
-      (values)))
-
-  (defun generate-constant-literal (value)
-    (let ((i -1))
-      `(progn
-	 (check-len-available ,(length value))
-	 ,@(map 'list (lambda(c)
-			(let ((possible (map 'list 'identity (force-sequence c))))
-			  `(case (peek-one-unchecked ,(incf i))
-			     (,possible)
-			     (t (fail))))) value)
-	 (eat-unchecked ,(length value))
-	 (values))))
-
-  (defmacro literal (v)
-    (if (constantp v)
-	(generate-constant-literal (force-to-target-sequence v))
-	`(dynamic-literal ,v))))
+      (values))))
 
 (defun-consistent to-int (val)
   (etypecase val
@@ -103,8 +82,8 @@
   `(with-specialized-match-functions (,type)
      (let ((*target* (force-to-target-sequence ,target)))
        (declare (type ,type *target*))
-       (declare (optimize speed))	 
-       ,@body)))
+       (declare (optimize speed))
+       ,(output-code (simplify-seq body)))))
 
 (defmacro with-match ( (target &key on-failure) &body body)
   (with-unique-names (bv s v)
@@ -120,10 +99,12 @@
 		  ,@body)))
 	 (declare (inline ,bv ,s ,v))
 	 (let ((*pos* 0)
-	       (*fail* (lambda() ,on-failure (values))))
+	       (*fail* (lambda() ,on-failure)))
 	   (declare (type small-positive-integer *pos*))
 	   
 	   (typecase ,target
 	     (byte-vector (,bv))
 	     (string (,s))
 	     (t (,v))))))))
+
+

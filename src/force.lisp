@@ -10,6 +10,7 @@
 (declaim (ftype (function ((and byte-vector (not simple-byte-vector))) simple-byte-vector) byte-vector-to-simple-byte-vector-consistent-internal))
 
 (defun-consistent force-string (val)
+  "Return a representation of VAL as a string, doing the work at compile-time if possible."
   (declare (optimize speed (safety 0)))
   (let ((str
 	 (the string
@@ -31,6 +32,7 @@
 
 
 (defun-consistent force-byte-vector (val)
+  "Return a representation of VAL as a UTF-8 byte-vector, doing the work at compile-time if possible."
   (declare (optimize speed (safety 0)))
   (typecase val
     (null #.(make-byte-vector 0))
@@ -44,6 +46,7 @@
 (declaim (ftype (function (t) byte-vector) force-byte-vector-consistent-internal))
 
 (defun-consistent force-simple-byte-vector (val)
+  "Return a representation of VAL as a UTF-8 simple byte-vector, doing the work at compile-time if possible."
   (declare (optimize speed (safety 0)))
   (let ((val (force-byte-vector val)))
     (etypecase val
@@ -54,11 +57,13 @@
 (declaim (ftype (function (t) simple-byte-vector) force-simple-byte-vector-consistent-internal))
 
 (defun-consistent byte-vector-to-string (vec)
+  "UTF-8 decode VEC to a string"
   (declare (optimize speed (safety 0)))
   (utf8-decode (force-simple-byte-vector vec)))
 
 
 (defun-consistent force-simple-string (val)
+  "Return a representation of VAL as a string, doing the work at compile-time if possible."
   (declare (optimize speed (safety 0)))
   (let ((val (force-string val)))
     (etypecase val
@@ -87,3 +92,6 @@
       (sequence
        (make-array (length seq) :initial-contents seq)))))
 
+
+(defun-speedy force-list (val)
+  (map 'list 'identity (force-sequence val)))

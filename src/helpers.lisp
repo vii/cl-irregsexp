@@ -1,6 +1,5 @@
 (in-package #:cl-irregsexp)
 
-
 (defmacro try-match (&body body)
   (with-unique-names (saved-pos try-match-block)
     `(let ((,saved-pos *pos*))
@@ -11,102 +10,13 @@
 		  (return-from ,try-match-block 'match-failed))))
 	   ,@body)))))
 
+
 (with-define-specialized-match-functions
-  (defgeneric fl-prefix (first rest))
-  (defmethod fl-prefix (first rest)
-    (cond ((macro-function first)
-	   (let ((a (macroexpand `(,first ,@rest))))
-	     (fl-prefix (first a) (rest a))))
-	  (t
-	   (values nil `(,first ,@rest)))))
-  
-  (defmethod fl-prefix ((first (eql 'literal)) rest)
-    (assert (not (second rest)))
-    (cond ((constantp (first rest))
-	   (values (force-to-target-sequence (first rest)) nil))
-	  (t (call-next-method))))
-
-  (defmacro match-any (&rest rest)
-    (multiple-value-bind (prefix options)
-	(fl-prefix 'match-any rest)
-      (cond (prefix
-	     (assert (not options))
-	     (generate-constant-literal prefix))
-	    (options
-	     (assert (not prefix))
-	     (with-unique-names (saved-pos match-any-block)
-	       `(let ((,saved-pos *pos*))
-		  (block ,match-any-block
-		    ,@(loop for opt in (butlast rest)
-			    collect
-			    (with-unique-names (match-any-fail-block)
-			      `(block ,match-any-fail-block
-				 (let ((*fail* (lambda () (setf *pos* ,saved-pos)
-						       (return-from ,match-any-fail-block))))
-				   (return-from ,match-any-block ,opt)))))
-		    ,@(last options))))))))
-
-  (defmethod fl-prefix ((first (eql 'match-any)) rest)
-    (block outer ; because of the type-specialization we cannot return-from fl-prefix
-      (let (prefix)
-	(loop for m in rest
-	      for once = t then nil
-	      do (multiple-value-bind (p s)
-		     (isolate-fixed-length-prefix (list m))
-		   (when once
-		     (setf prefix p))
-		   (setf prefix (merge-match-any-prefix p prefix))
-		   (when (or s (not prefix))
-		     (return-from outer (call-next-method)))))
-	(values prefix nil))))
-
-  (defun isolate-fixed-length-prefix (matches)
-    (let ((forms (flatten-progn-forms matches)) after prefix)
-      (loop for f in forms
-	    do
-	    (cond ( (or after (not (listp f))) (appendf after (list f)))
-		  (t (multiple-value-bind (p s)
-			 (fl-prefix (first f) (rest f))
-		       (appendf prefix (map 'list 'identity p))
-		       (when s
-			 (appendf after (list s)))))))
-      (values prefix after)))
-
-  (defmacro match-until-internal (&rest matches)
-    (cond 
-      ((or (equalp '((match-end)) matches) (equalp '((progn (match-end))) matches))
-       `(values *pos* (length *target*)))
-      (t
-       (multiple-value-bind 
-	     (bm-spec other-matches)
-	   (isolate-fixed-length-prefix matches)
-	 (with-unique-names (start end restart)
-	   `(let ((,start *pos*) (,end *pos*))
-	      (tagbody
-		 ,restart
-		 ,(when bm-spec
-			`(setf ,end
-			       ,(generate-bm-matcher bm-spec)))
-		 ,(when other-matches
-			`(match-any 
-			  (progn ,@other-matches)
-			  (progn (eat 1) (incf ,end) (go ,restart)))))
-	      (values ,start ,end)))))))
+    (defmacro match-until-internal (&rest matches)
+      (output-match-until-code (simplify-seq matches)))
 
   (defmacro match-until-and-eat (&rest matches)
-    (with-unique-names (start end)
-      `(multiple-value-bind (,start ,end) 
-	   (match-until-internal ,@matches)
-	 (subseq *target* ,start ,end))))
-
-
-  (defmacro match-until (&rest matches)
-    (with-unique-names (start end)
-      `(multiple-value-bind (,start ,end)
-	   (match-until-internal ,@matches)
-	 (declare (ignore ,start))
-	 (setf *pos* ,end)
-	 (subseq *target* ,start ,end)))))
+    `(subseq *target* *pos* (match-until-internal ,@matches))))
 
 (defmacro match-all (&rest options)
   (with-unique-names (saved-pos)
@@ -115,37 +25,28 @@
 	       `(progn (setf *pos* ,saved-pos)
 		       ,opt)))))
 
-(defun flatten-progn-forms (matches) 
-  (when (eq (first matches) 'progn)
-    (setf matches (rest matches)))
-  (loop for i in matches
-	append 
-	(cond
-	  ((not i) nil)
-	  ((and (listp i) (eq 'progn (first i)))
-	   (flatten-progn-forms i))
+(defsimplifier match-until (&rest matches)
+  `(setf *pos* (match-until-internal ,@matches)))
+
+(defsimplifier match-any (&body body)
+  (let ((choices 
+	 (loop for form in body
+	       for choice = (simplify form)
+	       if (choice-p choice)
+	       append (choice-list choice)
+	       else
+	       collect choice)))
+    (cond ((not choices))
+	  ((not (rest choices))
+	   (first choices))
 	  (t
-	   (list i)))))
+	   (make-choice :list choices)))))
 
+(defsimplifier literal (value)
+  (cond ((constantp value)
+	 (make-const :value (force-to-target-sequence value)))
+	(t `(dynamic-literal ,value))))
 
-(defun merge-match-any-prefix (a b)
-  (when (= (length a) (length b))
-    (let (different)
-      (map 'nil 
-	   (lambda(x y)
-	     (flet ((subset-p (superset set)
-		      (every (lambda(e) (some (lambda(d) (eql d e)) (force-sequence superset))) (force-sequence set))))
-	       (unless (and (subset-p x y) (subset-p y x))
-		 (when different
-		   (return-from merge-match-any-prefix))
-		 (setf different t))))
-	   a b))
-    (map 'list (lambda (x y)
-		 (let (r)
-		   (flet ((add (c) (pushnew c r :test 'equal)))
-		     (map nil #'add (force-sequence x))
-		     (map nil #'add (force-sequence y)))
-		   r)) a b)))
 
 (defun-speedy match-remaining ()
   (eat (len-available)))
@@ -165,44 +66,48 @@
       (fail))
     (eat 1)))
 
-(defmacro match-multiple ( (&optional min (optional-extra t)) &rest matches)
-  (with-unique-names (start)
-    `(let ((,start *pos*))
-       ,(when min
-	      `(loop for i below ,min
-		     do ,@matches))
+
+(defsimplifier match-multiple ((&optional min (optional-extra t)) &rest matches)
+  (with-unique-names (i p)
+    `(progn
+       ,(cond ((not min))
+	      ((constantp min)
+	       `(progn
+		  ,@(loop for i below min append matches)))
+	      (t
+	       `(dotimes ((,i ,min))
+		  ,@matches)))
        ,(case optional-extra
 	      ((nil))
-	      ((t) `(loop for p = *pos* do (try-match ,@matches) until (= p *pos*)))
-	      (otherwise `(loop for i below ,optional-extra 
-				for p = *pos* do (try-match ,@matches) until (= p *pos*))))
-       (subseq *target* ,start *pos*))))
+	      ((t) `(loop for ,p = *pos* do (try-match ,@matches) until (= ,p *pos*)))
+	      (otherwise `(loop for ,i below ,optional-extra 
+				for ,p = *pos* do (try-match ,@matches) until (= ,p *pos*)))))))
 
 
-(defmacro match-one-or-more (&rest matches)
+(defsimplifier match-one-or-more (&rest matches)
   `(match-multiple (1) ,@matches))
 
-(defmacro match-zero-or-more (&rest matches)
+(defsimplifier match-zero-or-more (&rest matches)
   `(match-multiple () ,@matches))
 
 (defun-speedy match-end ()
   (unless (zerop (len-available))
     (fail)))
 
-(defmacro match-one-whitespace ()
+(defsimplifier match-one-whitespace ()
   `(match-any (literal #\Space) (literal #\Tab) (literal #\Linefeed) (literal #\Return) (literal #\Page)))
 
-(defmacro match-integer (&optional (base 10))
-  `(progn
-     (let ((sign (if (eql (force-to-target-element-type #\-) (peek-one)) 
-		     (progn 
-		       (eat-unchecked 1)
-		       -1) 
-		     1)))
-       (* sign (match-unsigned-integer ,base)))))
+(with-define-specialized-match-functions
+  (defun-speedy match-integer (&optional (base 10))
+    (let ((sign (if (eql (force-to-target-element-type #\-) (peek-one)) 
+		    (progn 
+		      (eat-unchecked 1)
+		      -1) 
+		    1)))
+      (* sign (match-unsigned-integer base)))))
 
 
-(defun-speedy match-unsigned-integer (base)
+(defun-speedy match-unsigned-integer (&optional (base 10))
   (let ((val 0) 
 	success)
     (declare (type (integer 2 36) base))

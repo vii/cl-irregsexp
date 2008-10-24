@@ -16,10 +16,12 @@
   (apply 'concatenate `(vector ,(if (arrayp string) (array-element-type string) t)) seqs))
 
 (defmacro match-replace-one (string match-replacements)
+  "As match-replace-all but at most one replacement is made"
   (once-only (string)
     `(concat ,string (multiple-value-list (match-replace-helper ,string ,@match-replacements)))))
 
 (defmacro match-replace-all (string &rest match-replacements)
+  "For each (match replacment) in MATCH-REPLACEMENTS replace each value of match with the value of replacement in STRING"
   (with-unique-names (s b r a f)
     `(let ((,s ,string))
        (flet ((,f () ; move out of the iter:iter so we can use macrolet without warnings
@@ -33,6 +35,3 @@
 		     (unless (zerop (length ,r)) (iter:collect ,r))
 		     (iter:until (zerop (length ,a)))
 		     (setf ,s ,a))))))))
-
-
-	  
