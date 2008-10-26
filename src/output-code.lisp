@@ -14,31 +14,24 @@
 	     `(let ((,saved-pos *pos*))
 		(block ,choice-block
 		,@(loop for o in (butlast options) collect
-			(with-unique-names (this-choice-block)
-			  `(block ,this-choice-block
-			     (let ((*fail* 
-				    (lambda() 
-				      (return-from ,this-choice-block))))
-			       ,(output-code o)
-			       (return-from ,choice-block))))
+			  `(with-match-block
+			       (with-fail
+				   (return-from ,choice-block ,(output-code o))
+				 (return-from-match-block)))
 			collect
 			`(setf *pos* ,saved-pos))
 		,(output-code (first (last options))))))))))
 
 (defun choice-output-match-until-code (choice)
-  (with-unique-names (saved-fail restart end match-until-block)
-    `(let ((,saved-fail *fail*))
-       (block ,match-until-block
-	 (tagbody
-	    ,restart
-	    (let ((*fail* 
-		   (lambda() 
-		     (let ((*fail* ,saved-fail))
-		       (eat 1)
-		       (go ,restart))))
-		  (,end *pos*))
-	      ,(choice-output-code choice)
-	      (return-from ,match-until-block ,end)))))))
+  (with-unique-names (end)
+    `(with-match-block
+	 (with-fail
+	     (let ((,end *pos*))
+		 ,(choice-output-code choice)
+		 ,end)
+	   
+	   (eat 1)
+	   (match-block-restart)))))
 
 (defmethod output-match-until-code ((choice choice))
   (let ((decider (choice-to-fast-decider choice)))
@@ -90,22 +83,20 @@
     table))
 
 (defmethod output-match-until-code ((decider decider))
-  (with-unique-names (restart end match-until-block)
-    `(block ,match-until-block
-       (tagbody
-	  ,restart
-	  (let ((,end *pos*))
-	    (cond ((> ,(decider-len decider) (len-available))
-		   ,(decider-end decider))
-		  (t
-		   ,@(let ((table (decider-skip-table decider)))
-			  (flet ((skip-list-cases (i)
+  (with-unique-names (end)
+    `(with-match-block
+	 (let ((,end *pos*))
+	   (cond ((> ,(decider-len decider) (len-available))
+		  ,(decider-end decider))
+		 (t
+		  ,@(let ((table (decider-skip-table decider)))
+			 (flet ((skip-list-cases (i)
 				   (loop for k being the hash-keys of table using (hash-value v)
 					 for m = (remove-if-not 'plusp (mapcar (lambda(x) (- i x)) v))
 					 when m
 					 collect
 					 `(,k (eat-unchecked ,(apply 'min m))
-					      (go ,restart)))))
+					      (match-block-restart)))))
 			    (loop for i downfrom (1- (decider-len decider)) to 0
 				  unless (eql (decider-differing-point decider) i)
 				  collect
@@ -113,7 +104,9 @@
 				    `(case (peek-one-unchecked ,i)
 				       (,possible)
 				       ,@(skip-list-cases i)
-				       (t (eat-unchecked ,(1+ i)) (go ,restart)))))))
-		   (let ((*fail* (lambda() (setf *pos* (1+ ,end)) (go ,restart) )))
-		     ,(output-finish-match-code decider))))
-	    (return-from ,match-until-block ,end))))))
+				       (t (eat-unchecked ,(1+ i)) (match-block-restart)))))))
+		   (with-fail
+		       ,(output-finish-match-code decider)
+		     (setf *pos* (1+ ,end)) 
+		     (match-block-restart))))
+	   ,end))))

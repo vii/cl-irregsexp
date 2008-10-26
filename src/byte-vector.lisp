@@ -7,11 +7,8 @@
   `(simple-array (unsigned-byte 8) (,len)))
 
 
-(defun make-byte-vector (len)
+(declaim (ftype (function ((unsigned-byte *)) simple-byte-vector) make-byte-vector))
+(defun-speedy make-byte-vector (len)
   "Return a simple byte-vector of length LEN"
-  (declare (optimize speed))
   (declare (type (unsigned-byte *) len))
   (make-array len :element-type '(unsigned-byte 8)))
-
-(declaim (inline make-byte-vector))
-(declaim (ftype (function ((unsigned-byte *)) simple-byte-vector) make-byte-vector)) 

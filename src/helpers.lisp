@@ -4,17 +4,17 @@
   (with-unique-names (saved-pos try-match-block)
     `(let ((,saved-pos *pos*))
        (block ,try-match-block
-	 (let ((*fail* 
-		(lambda() 
-		  (setf *pos* ,saved-pos)
-		  (return-from ,try-match-block 'match-failed))))
-	   ,@body)))))
+	 (with-fail
+	     (progn
+	       ,@body)
+	   (setf *pos* ,saved-pos)
+	   (return-from ,try-match-block 'match-failed))))))
 
 
 (with-define-specialized-match-functions
-    (defmacro match-until-internal (&rest matches)
-      (output-match-until-code (simplify-seq matches)))
-
+  (defmacro match-until-internal (&rest matches)
+    (output-match-until-code (simplify-seq matches)))
+  
   (defmacro match-until-and-eat (&rest matches)
     `(subseq *target* *pos* (match-until-internal ,@matches))))
 
@@ -47,24 +47,25 @@
 	 (make-const :value (force-to-target-sequence value)))
 	(t `(dynamic-literal ,value))))
 
-
-(defun-speedy match-remaining ()
-  (eat (len-available)))
-
+(with-define-specialized-match-functions
+  (defun-speedy match-remaining ()
+    (eat (len-available)))
+  (defun-speedy match-element-range (start-inclusive end-inclusive)
+    (let ((s (to-int start-inclusive)) (e (to-int end-inclusive)) (v (to-int (peek-one))))
+      (declare (type fixnum s e v))
+      (unless (>= e v s)
+	(fail))
+      (eat 1))))
 
 (defmacro match-not (&rest matches)
-  (with-unique-names (match-not-block)
-    `(block ,match-not-block 
-       (let ((*fail* (lambda() (return-from ,match-not-block))))
-	 ,@matches)
-       (fail))))
+  `(with-match-block
+       (with-fail
+	   (progn
+	     ,@matches)
+	 (return-from-match-block))
+     (fail)))
 
-(defun-speedy match-element-range (start-inclusive end-inclusive)
-  (let ((s (to-int start-inclusive)) (e (to-int end-inclusive)) (v (to-int (peek-one))))
-    (declare (type fixnum s e v))
-    (unless (>= e v s)
-      (fail))
-    (eat 1)))
+
 
 
 (defsimplifier match-multiple ((&optional min (optional-extra t)) &rest matches)
@@ -90,44 +91,66 @@
 (defsimplifier match-zero-or-more (&rest matches)
   `(match-multiple () ,@matches))
 
-(defun-speedy match-end ()
-  (unless (zerop (len-available))
-    (fail)))
 
 (defsimplifier match-one-whitespace ()
   `(match-any (literal #\Space) (literal #\Tab) (literal #\Linefeed) (literal #\Return) (literal #\Page)))
 
+(defun generate-digit-matcher (base var)
+  (declare (type (integer 2 36) base))
+  (let ((ranges (sort (remove-if-not (lambda(x) (> base (second x))) `( (,(to-int #\0)  0) (,(to-int #\A)  10) (,(to-int #\a)  10)))
+		      '>
+		      :key 'first)))
+    `(let ((i (to-int ,var)))
+       (cond ,@(loop for r in ranges
+		     collect `((>= i ,(+ (first r) (- base (second r)))) nil) 
+		     collect `((>= i ,(first r)) (- i ,(- (first r) (second r)))))))))
+
+(defun generate-unsigned-matcher (base largest)
+  (declare (type (integer 2 36) base))
+  (let ((val-type `(integer 0 ,(or largest '*))))
+    `(let ((val 0) (start *pos*))
+       (loop for digit of-type (or null (integer 0 ,(1- base))) = ,(generate-digit-matcher base '(peek-one))
+	     while digit
+	     do 
+	     (locally
+		 (declare (type (integer 0 ,(1- base)) digit) (optimize speed))
+	       (setf val
+		     (let ((old-val val))
+			 ,(when largest 
+				`(declare ,@(when (<= largest most-positive-fixnum) (list `(optimize (safety 0))))
+					  (type (integer 0 ,(- (floor largest base) (1- base))) old-val)))
+		       (the ,val-type (+ (* old-val ,base) digit))))
+	       (eat-unchecked 1))
+	     until (zerop (len-available)))
+       (when (= *pos* start)
+	 (fail))
+       (the ,val-type val))))
+
+(defun generate-integer-matcher (base least largest)
+  (declare (type (integer 2 36) base))
+  (cond ((or (not least) (minusp least))
+    `(if (eql (force-to-target-element-type #\-) (peek-one)) 
+	 (progn 
+	   (eat-unchecked 1)
+	   (* -1 ,(generate-unsigned-matcher base (when least (- least)))))
+	 ,(generate-unsigned-matcher base largest)))
+	(t
+	 (generate-unsigned-matcher base largest))))
+
 (with-define-specialized-match-functions
-  (defun-speedy match-integer (&optional (base 10))
-    (let ((sign (if (eql (force-to-target-element-type #\-) (peek-one)) 
-		    (progn 
-		      (eat-unchecked 1)
-		      -1) 
-		    1)))
-      (* sign (match-unsigned-integer base)))))
+  (defun-speedy match-end ()
+    (unless (zerop (len-available))
+      (fail)))
 
+  (defmacro match-integer (&optional (base 10))
+    (generate-integer-matcher base nil nil))
 
-(defun-speedy match-unsigned-integer (&optional (base 10))
-  (let ((val 0) 
-	success)
-    (declare (type (integer 2 36) base))
-    (declare (type unsigned-byte val))
-    (labels ((range (a c b &optional (offset 0))
-	       (declare (type small-positive-integer offset))
-	       (when (<= (to-int a) c (to-int b))
-		 (+ offset (- c (to-int a))))))
-      (declare (inline range))
-      (loop for digit = 
-	    (let ((c (to-int (peek-one))))
-	      (or (range #\0 c #\9) (range #\A c #\Z 10) (range #\a c #\z 10)))
-	    while (and digit (> base digit))
-	    do
-	    (locally 
-		(declare (type (integer 0 35) digit))
-	      (setf success t)
-	      (setf val (+ digit (* val base)))
-	      (eat-unchecked 1))
-	    until (zerop (len-available)))
-      (unless success
-	(fail))
-      val)))
+  (defmacro match-unsigned-integer (&optional (base 10))
+    (generate-unsigned-matcher base nil))
+
+  (defmacro match-fixnum (&optional (base 10))
+    ;; most-negative-fixnum is unfortunately usually 1+ most-positive-fixnum which is annoying but most people don't care
+    (generate-integer-matcher base (- most-positive-fixnum) most-positive-fixnum))
+
+  (defmacro match-positive-fixnum (&optional (base 10))
+    (generate-unsigned-matcher base most-positive-fixnum)))

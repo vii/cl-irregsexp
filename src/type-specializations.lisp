@@ -1,17 +1,21 @@
 (in-package #:cl-irregsexp)
 
 (defvar *type-specific-match-functions* '(force))
-(defvar *specialized-types* '(simple-byte-vector simple-string simple-vector))
+(defvar *specialized-types* '(simple-byte-vector simple-string))
 
 (defun specialized-func-symbol (func type)
   (intern (concatenate 'string (symbol-name func) "-" (symbol-name type)) (symbol-package func)))
 
+(defun all-specialized-func-symbols (func)
+  (loop for type in *specialized-types* collect (specialized-func-symbol func type)))
+
 (defmacro with-specialized-match-functions ((type) &body body)
   (loop for f in *type-specific-match-functions*
-	do (setf body (subst (specialized-func-symbol f type) f body))) ; unfortunately cannot use macrolet any more because of defsimplify
-  `(locally
-       (declare (type ,type *target*))
-     ,@body))
+	do (setf body (subst (specialized-func-symbol f type) f body))) ; unfortunately cannot just use macrolet any more because of defsimplify
+  `(progn
+     (macrolet (,@(loop for f in *type-specific-match-functions* 
+			collect `(,f (&rest args) `(,',(specialized-func-symbol f type) ,@args))))
+       ,@body)))
 
 
 (defmacro with-define-specialized-match-functions (&body match-functions)

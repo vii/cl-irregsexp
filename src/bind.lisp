@@ -16,6 +16,7 @@
     (- . match-element-range)
     (integer . match-integer)
     (unsigned-byte . match-unsigned-integer)
+    (fixnum . match-fixnum)
     (space . match-one-whitespace)
     (last . match-end)
     (char . eat)
