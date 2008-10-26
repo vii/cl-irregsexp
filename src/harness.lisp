@@ -33,8 +33,9 @@
   (pushnew 'target *type-specific-match-functions*))
 
 (defmacro with-fail (body &body fail-actions)
+  (assert fail-actions)
   (with-unique-names (fail)
-    `(flet ((,fail () ,@fail-actions (error "Fail must not return: ~A" ',fail-actions)))
+    `(flet ((,fail () ,@fail-actions (error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))
        (declare (inline ,fail))
        (macrolet ((fail () `(,',fail)))
 	 (let ((*fail* #',fail))
@@ -49,7 +50,7 @@
 	    (macrolet ((match-block-restart ()
 			 `(locally (declare (optimize speed (safety 0)))
 			    (go ,',restart)))
-		       (return-from-match-block (value)
+		       (return-from-match-block (&optional value)
 			 (once-only (value)
 			   `(locally (declare (optimize speed (safety 0)))
 			      (return-from  ,',match-block ,value)))))
@@ -100,7 +101,6 @@
     (check-len-available (1+ i))
     (peek-one-unchecked i))
 
-  
   (defun-speedy force-to-target-element-type (c)
     (let ((s (force-to-target-sequence c)))
       (assert (= 1 (length s)))
@@ -129,7 +129,7 @@
        ,(output-code (simplify-seq body)))))
 
 
-(defmacro with-match ( (target &key on-failure) &body body)
+(defmacro with-match ( (target &key (on-failure '(error 'match-failed))) &body body)
   (with-unique-names (bv s)
     (once-only (target)
       `(flet ((,bv () ;; use separate flets so poor SBCL does not struggle so much with large matches

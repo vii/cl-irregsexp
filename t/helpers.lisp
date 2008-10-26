@@ -7,9 +7,10 @@
   (with-match ("hello")
     (5am:finishes 
       (literal "hell")))
-  (with-match ("goodbye")
-    (literal "xoodbye")
-    (5am:fail)))
+  (5am:signals match-failed 
+    (with-match ("goodbye")
+      (literal "xoodbye")
+      (5am:fail))))
 
 (5am:test match-multiple
   (with-match ("llama")
@@ -69,10 +70,10 @@
     (5am:finishes
       (match-multiple () (match-element-range #\a #\z))
       (match-end)))
-  (with-match ("Xword")
-    (match-multiple () (match-element-range #\a #\z))
-    (match-end)
-    (5am:fail)))
+  (5am:signals match-failed 
+    (with-match ("Xword")
+      (match-multiple (1) (match-element-range #\a #\z))
+      (5am:fail))))
 
 
 (5am:test match-not
@@ -84,12 +85,14 @@
       (literal "ot"))))
 
 (5am:test match-integer
-  (with-match (" ")
-    (match-integer)
-    (5am:fail))
-  (with-match ("- ")
-    (match-integer)
-    (5am:fail))
+  (5am:signals match-failed 
+    (with-match (" ")
+      (match-integer)
+      (5am:fail)))
+  (5am:signals match-failed 
+    (with-match ("- ")
+      (match-integer)
+      (5am:fail)))
   (with-match ("1")
     (5am:finishes
       (5am:is (= 1 (match-integer)))))

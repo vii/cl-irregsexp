@@ -90,10 +90,10 @@
 		  ,(decider-end decider))
 		 (t
 		  ,@(let ((table (decider-skip-table decider)))
-			 (flet ((skip-list-cases (i)
+			 (flet ((skip-list-cases (i possible)
 				   (loop for k being the hash-keys of table using (hash-value v)
 					 for m = (remove-if-not 'plusp (mapcar (lambda(x) (- i x)) v))
-					 when m
+					 when (and m (not (member k possible :test 'eql)))
 					 collect
 					 `(,k (eat-unchecked ,(apply 'min m))
 					      (match-block-restart)))))
@@ -103,7 +103,7 @@
 				  (let ((possible (decider-possible decider i)))
 				    `(case (peek-one-unchecked ,i)
 				       (,possible)
-				       ,@(skip-list-cases i)
+				       ,@(skip-list-cases i possible)
 				       (t (eat-unchecked ,(1+ i)) (match-block-restart)))))))
 		   (with-fail
 		       ,(output-finish-match-code decider)
