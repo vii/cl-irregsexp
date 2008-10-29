@@ -16,7 +16,7 @@
     (output-match-until-code (simplify-seq matches)))
   
   (defmacro match-until-and-eat (&rest matches)
-    `(subseq *target* *pos* (match-until-internal ,@matches))))
+    `(subseq (target) *pos* (match-until-internal ,@matches))))
 
 (defmacro match-all (&rest options)
   (with-unique-names (saved-pos)
@@ -47,15 +47,15 @@
 	 (make-const :value (force-to-target-sequence value)))
 	(t `(dynamic-literal ,value))))
 
+(defsimplifier match-element-range (start-inclusive end-inclusive)
+  (assert (constantp start-inclusive))
+  (assert (constantp end-inclusive))
+  `(match-any ,@(loop for i from (to-int start-inclusive) upto (to-int end-inclusive) collect
+		      `(literal ,(code-char i)))))
+
 (with-define-specialized-match-functions
-  (defun-speedy match-remaining ()
-    (eat (len-available)))
-  (defun-speedy match-element-range (start-inclusive end-inclusive)
-    (let ((s (to-int start-inclusive)) (e (to-int end-inclusive)) (v (to-int (peek-one))))
-      (declare (type fixnum s e v))
-      (unless (>= e v s)
-	(fail))
-      (eat 1))))
+  (defmacro match-remaining ()
+    `(eat (len-available))))
 
 (defmacro match-not (&rest matches)
   `(with-match-block
@@ -63,7 +63,7 @@
 	   (progn
 	     ,@matches)
 	 (return-from-match-block))
-     (fail)))
+       (fail)))
 
 
 
@@ -137,11 +137,11 @@
 	(t
 	 (generate-unsigned-matcher base largest))))
 
-(with-define-specialized-match-functions
-  (defun-speedy match-end ()
-    (unless (zerop (len-available))
-      (fail)))
+(defsimplifier match-end ()
+  (make-match-end))
 
+
+(with-define-specialized-match-functions
   (defmacro match-integer (&optional (base 10))
     (generate-integer-matcher base nil nil))
 

@@ -42,7 +42,7 @@
 #.(progn
     (when (eql #x100 (ignore-errors (char-code (code-char #x100))))
       (pushnew :cl-irregsexp-big-characters-in-strings *features*)
-      nil))
+      `(pushnew :cl-irregsexp-big-characters-in-strings *features*)))
 		       
 #+cl-irregsexp-big-characters-in-strings      
 (defun-consistent utf8-encode (str)
@@ -59,7 +59,10 @@
 
 #+cl-irregsexp-big-characters-in-strings      
 (defun-consistent utf8-decode (vec)
-  (declare (optimize speed))
+  (declare (type simple-byte-vector vec))
+  (utf8-decode-really vec))
+
+(defun utf8-decode-really (vec)
   (declare (type simple-byte-vector vec))
   (let ((str (make-string (length vec))))
     (block decode

@@ -1,5 +1,14 @@
 (in-package #:cl-irregsexp)
 
+(defmethod output-code ((match-end match-end))
+  (declare (ignore match-end))
+  `(unless (zerop (len-available))
+     (fail)))
+
+(defmethod output-match-until-code ((match-end match-end))
+  (declare (ignore match-end))
+  `(setf *pos* (length (target))))
+
 (defmethod output-code ((choice choice))
   (let ((decider (choice-to-fast-decider choice)))
     (if decider (output-code decider)
@@ -25,13 +34,14 @@
 (defun choice-output-match-until-code (choice)
   (with-unique-names (end)
     `(with-match-block
+       (let ((,end *pos*))
 	 (with-fail
-	     (let ((,end *pos*))
-		 ,(choice-output-code choice)
-		 ,end)
-	   
+	     (progn
+	       ,(choice-output-code choice)
+	       ,end)
+	   (setf *pos* ,end)
 	   (eat 1)
-	   (match-block-restart)))))
+	   (match-block-restart))))))
 
 (defmethod output-match-until-code ((choice choice))
   (let ((decider (choice-to-fast-decider choice)))
@@ -46,11 +56,13 @@
 	      ,(when p (path-after-code p)))))
     (cond 
       ((decider-differing-point decider)
-       (let ((i (decider-differing-point decider)))
+       (let ((i (decider-differing-point decider))
+	     (codes (make-hash-table :test 'equal)))
+	 (loop for p in (decider-paths decider) do (push p (gethash (code p) codes)))
 	 `(case (peek-one-unchecked ,i)
-	    ,@(loop for p in (decider-paths decider)
-		    collect `(,(force-list (elt (path-prefix p) i))
-			       ,(code p)))
+	    ,@(loop for k being the hash-keys of codes using (hash-value v)
+		    collect `(,(loop for p in v collect (elt (path-prefix p) i))
+			       ,k))
 	    (t (fail)))))
       ((not (rest (decider-paths decider)))
        (code (first (decider-paths decider))))

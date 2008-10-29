@@ -1,16 +1,10 @@
 (in-package #:cl-irregsexp)
 
-(defvar *fail* (lambda() (error "*fail* not set")))
-					;(declaim (type (function () ()) *fail*)) TODO why has this stopped working on recent SBCL 1.0.21
-
 (deftype integer-match-index ()
   `(integer 0 ,(floor most-positive-fixnum 3)))
 
-(defun-speedy fail ()
-  (declare (type (function () ()) *fail*))
-  (funcall *fail*)
-  (error "*fail* must not return"))
-
+(defmacro fail ()
+  (error "fail called out of a with-fail"))
 
 (defvar *target* "")
 (defvar *pos* 0)
@@ -34,12 +28,8 @@
 
 (defmacro with-fail (body &body fail-actions)
   (assert fail-actions)
-  (with-unique-names (fail)
-    `(flet ((,fail () ,@fail-actions (error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))
-       (declare (inline ,fail))
-       (macrolet ((fail () `(,',fail)))
-	 (let ((*fail* #',fail))
-	   ,body)))))
+  `(flet ((fail () ,@fail-actions (error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))
+     ,body))
 
 (defmacro with-match-block (&body body)
   (with-unique-names (match-block restart)
@@ -63,23 +53,29 @@
   (defun-speedy len-available ()
     (- (length (target)) *pos*))
 
-  (defun-speedy check-len-available (len)
-    (declare (type integer-match-index len *pos*))
-    (declare (optimize speed (safety 0)))
-    (when (> (the integer-match-index (+ *pos* len)) (the integer-match-index (length (target))))
-      (fail))
-    (values))
+  (defmacro check-len-available (len)
+    (once-only (len)
+      `(locally
+	   (declare (type integer-match-index ,len *pos*))
+	 (declare (optimize speed (safety 0)))
+	 (when (> (the integer-match-index (+ *pos* ,len)) (the integer-match-index (length (target))))
+	   (fail))
+	 (values))))
+ 
+  (defmacro peek (&optional (len '(len-available)))
+    (once-only (len)
+      `(locally    
+	   (declare (type integer-match-index ,len *pos*))
+	 (check-len-available ,len)
+	 (subseq (target) *pos* (+ *pos* ,len)))))
 
-  (defun-speedy peek (&optional (len (len-available)))
-    (declare (type integer-match-index len *pos*))
-    (check-len-available len)
-    (subseq (target) *pos* (+ *pos* len)))
-
-  (defun-speedy eat (&optional (len 1))
-    (declare (type integer-match-index len))
-    (prog1
-	(peek len)
-      (eat-unchecked len)))
+  (defmacro eat (&optional (len 1))
+    (once-only (len)
+      `(locally
+	   (declare (type integer-match-index ,len))
+	 (prog1
+	     (peek ,len)
+	   (eat-unchecked ,len)))))
 
   (defun-speedy eat-unchecked (&optional (len 1))
     (declare (optimize speed (safety 0)))
@@ -97,23 +93,25 @@
     (declare (type integer-match-index i *pos*))
     (elt-target (+ *pos* i)))
 
-  (defun-speedy peek-one (&optional (i 0))
-    (check-len-available (1+ i))
-    (peek-one-unchecked i))
+  (defmacro peek-one (&optional (i 0))
+    (once-only (i)
+    `(progn
+       (check-len-available (1+ ,i))
+       (peek-one-unchecked ,i))))
 
   (defun-speedy force-to-target-element-type (c)
     (let ((s (force-to-target-sequence c)))
       (assert (= 1 (length s)))
       (elt s 0)))
 
-  (defun-speedy dynamic-literal (v)
-    (let ((value (force-to-target-sequence v)))
-      (check-len-available (length value))
-      (loop for i of-type integer-match-index below (length value)
-	    unless (eql (peek-one-unchecked i) (elt value i))
-	    do (fail))
-      (eat-unchecked (length value))
-      (values))))
+  (defmacro dynamic-literal (v)
+    `(let ((value (force-to-target-sequence ,v)))
+       (check-len-available (length value))
+       (loop for i of-type integer-match-index below (length value)
+	     unless (eql (peek-one-unchecked i) (elt value i))
+	     do (fail))
+       (eat-unchecked (length value))
+       (values))))
 
 (defun-consistent to-int (val)
   (etypecase val
@@ -132,17 +130,18 @@
 (defmacro with-match ( (target &key (on-failure '(error 'match-failed))) &body body)
   (with-unique-names (bv s)
     (once-only (target)
-      `(flet ((,bv () ;; use separate flets so poor SBCL does not struggle so much with large matches
-		(with-match-env (simple-byte-vector ,target)
-		  ,@body))
-	      (,s ()
-		(with-match-env (simple-string ,target)
-		  ,@body)))
+      `(flet ((fail ()
+		,on-failure
+		(error "top-level fail returned")))
+	 (flet ((,bv () ;; use separate flets so poor SBCL does not struggle so much with large matches
+		  (with-match-env (simple-byte-vector ,target)
+		    ,@body))
+		(,s ()
+		  (with-match-env (simple-string ,target)
+		    ,@body)))
 	 (declare (inline ,bv ,s))
 	 (let ((*pos* 0))
 	   (declare (type integer-match-index *pos*))
-	   (with-fail 
-	       (etypecase ,target
-		 (byte-vector (,bv))
-		 (string (,s)))
-	     ,on-failure))))))
+	   (etypecase ,target
+	     (byte-vector (,bv))
+	     (string (,s)))))))))

@@ -156,7 +156,7 @@
 	  do (multiple-value-bind (first rest)
 		 (split-choice-prefix c)
 	       (cond 
-		 ((member first `((match-end) ,@(loop for i in (all-specialized-func-symbols 'match-end) collect `(,i))) :test 'equal)
+		 ((match-end-p first)
 		  (setf end rest))
 		 ((const-p first)
 		  (push (make-path :prefix (const-value first) :after rest) paths))

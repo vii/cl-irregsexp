@@ -13,7 +13,7 @@
 			:components (
 				     (:file "packages")
 				     (:file "macros" :depends-on ("packages"))
-				     (:file "byte-vector" :depends-on ("packages"))
+				     (:file "byte-vector" :depends-on ("packages" "macros"))
 				     (:file "utf8" :depends-on ("macros" "byte-vector"))
 				     (:file "force"  :depends-on ("utf8"))
 				     (:file "type-specializations" :depends-on ("force"))

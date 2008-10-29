@@ -1,8 +1,7 @@
 (in-package #:cl-irregsexp)
 
-(declaim (ftype (function ((and byte-vector (not simple-byte-vector))) simple-byte-vector) byte-vector-to-simple-byte-vector-consistent-internal))
+(declaim-defun-consistent-ftype byte-vector-to-simple-byte-vector ((and byte-vector (not simple-byte-vector))) simple-byte-vector)
 (defun-consistent byte-vector-to-simple-byte-vector (val)
-  (declare (optimize speed (safety 0)))
   (declare (type (and byte-vector (not simple-byte-vector)) val))
   (let ((ret (make-byte-vector (length val))))
     (replace ret val)
@@ -10,10 +9,9 @@
 
 
 
-(declaim (ftype (function (t) simple-string) force-string-consistent-internal))
+(declaim-defun-consistent-ftype force-string (t) simple-string)
 (defun-consistent force-string (val)
   "Return a representation of VAL as a string, doing the work at compile-time if possible."
-  (declare (optimize speed (safety 0)))
   (let ((str
 	 (the string
 	   (typecase val
@@ -33,10 +31,9 @@
 
 
 
-(declaim (ftype (function (t) byte-vector) force-byte-vector-consistent-internal))
+(declaim-defun-consistent-ftype force-byte-vector (t) byte-vector)
 (defun-consistent force-byte-vector (val)
   "Return a representation of VAL as a UTF-8 byte-vector, doing the work at compile-time if possible."
-  (declare (optimize speed (safety 0)))
   (typecase val
     (null #.(make-byte-vector 0))
     (simple-string (utf8-encode val))
@@ -48,10 +45,9 @@
 
 
 
-(declaim (ftype (function (t) simple-byte-vector) force-simple-byte-vector-consistent-internal))
+(declaim-defun-consistent-ftype force-simple-byte-vector  (t) simple-byte-vector)
 (defun-consistent force-simple-byte-vector (val)
   "Return a representation of VAL as a UTF-8 simple byte-vector, doing the work at compile-time if possible."
-  (declare (optimize speed (safety 0)))
   (let ((val (force-byte-vector val)))
     (etypecase val
       (simple-byte-vector val)
@@ -62,11 +58,9 @@
 
 (defun-consistent byte-vector-to-string (vec)
   "UTF-8 decode VEC to a string"
-  (declare (optimize speed (safety 0)))
   (utf8-decode (force-simple-byte-vector vec)))
 
-
-(declaim (ftype (function (t) simple-string) force-simple-string-consistent-internal))
+(declaim-defun-consistent-ftype force-simple-string (t) simple-string)
 (defun-consistent force-simple-string (val)
   "Return a representation of VAL as a string, doing the work at compile-time if possible."
   (declare (optimize speed (safety 0)))
@@ -75,9 +69,6 @@
       (simple-string val)
       (string
        (replace (make-string (length val)) val)))))
-
-
-
 
 (defun-speedy force-sequence (val)
   (typecase val
@@ -88,7 +79,6 @@
 
 
 (defun-consistent force-simple-vector (v)
-  (declare (optimize speed (safety 0)))
   (let ((seq (force-sequence v)))
     (etypecase seq
       (simple-vector seq)

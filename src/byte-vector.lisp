@@ -9,6 +9,5 @@
 
 (declaim (ftype (function ((unsigned-byte *)) simple-byte-vector) make-byte-vector))
 (defun-speedy make-byte-vector (len)
-  "Return a simple byte-vector of length LEN"
   (declare (type (unsigned-byte *) len))
   (make-array len :element-type '(unsigned-byte 8)))

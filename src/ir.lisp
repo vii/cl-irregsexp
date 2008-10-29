@@ -21,3 +21,5 @@
   paths
   end
   differing-point)
+
+(defstruct match-end)

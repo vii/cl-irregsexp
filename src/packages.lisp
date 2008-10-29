@@ -1,4 +1,4 @@
-(cl:defpackage #:cl-irregsexp-bytestrings
+(cl:defpackage #:cl-irregsexp.bytestrings
   (:export
    #:force-string
    #:force-simple-string
@@ -9,9 +9,21 @@
    #:byte-vector
    #:simple-byte-vector))
 
+(cl:defpackage #:cl-irregsexp.utils
+  (:export
+   #:defun-consistent
+   #:declaim-defun-consistent-ftype
+   #:defun-speedy
+   #:defun-careful
+   #:concat-sym
+   #:concat-sym-from-sym-package
+   #:read-only-load-time-value
+   #:load-time-constantp))
+
+
 (cl:defpackage #:cl-irregsexp
   (:use #:common-lisp)
-  (:use #:cl-irregsexp-bytestrings)
+  (:use #:cl-irregsexp.bytestrings #:cl-irregsexp.utils)
   (:import-from #:cl-utilities #:with-unique-names #:once-only)
   (:export 
    #:match-failed
