@@ -21,7 +21,7 @@
 (defmacro with-define-specialized-match-functions (&body match-functions)
   (let ((names 
 	 (loop for f in match-functions
-	       do (assert (member (first f) '(defmethod defgeneric defmacro defun defun-speedy defsimplifier-go)))
+	       do (assert (member (first f) '(defmethod defgeneric defmacro defun defun-speedy defun-consistent defsimplifier-go)))
 	       collect (second f))))
     `(progn
        (eval-when (:compile-toplevel :load-toplevel)

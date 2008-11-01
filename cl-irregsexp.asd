@@ -17,13 +17,13 @@
 				     (:file "utf8" :depends-on ("macros" "byte-vector"))
 				     (:file "force"  :depends-on ("utf8"))
 				     (:file "type-specializations" :depends-on ("force"))
-				     (:file "harness" :depends-on ("type-specializations" "simplify" "output-code"))
+				     (:file "harness" :depends-on ("type-specializations" "simplify" "force" "output-code"))
 				     (:file "output-code" :depends-on ("simplify"))
 				     (:file "ir" :depends-on ("packages"))
 				     (:file "simplify" :depends-on ("type-specializations" "ir"))
 				     (:file "helpers" :depends-on ("harness"))
-				     (:file "bind" :depends-on ("helpers"))
-				     (:file "replace" :depends-on ("bind")))))
+				     (:file "bind" :depends-on ("helpers" "harness"))
+				     (:file "replace" :depends-on ("bind" "byte-vector")))))
   :depends-on (
 	       :iterate
 	       :cl-utilities))

@@ -15,12 +15,10 @@
      ,@(loop for type in *specialized-types*
 	     for func = (specialized-func-symbol 'target type)
 	     collect
-	     `(progn
-		(declaim (ftype (function () ,type) ,func))
-		(defun-speedy ,func ()
-		  (declare (optimize speed (safety 0)))
-		  (declare (type ,type *target*))
-		  *target*)))))
+	     `(defmacro ,func ()
+		`(locally		
+		     (declare (optimize speed (safety 0)) (type ,',type *target*))
+		   *target*)))))
 (def-target)
 
 (eval-when (:compile-toplevel :load-toplevel)
@@ -50,15 +48,15 @@
   (defmacro force-to-target-sequence (v)
     `(force ,v))
 
-  (defun-speedy len-available ()
-    (- (length (target)) *pos*))
+  (defmacro len-available ()
+    `(- (length (target)) *pos*))
 
   (defmacro check-len-available (len)
     (once-only (len)
       `(locally
 	   (declare (type integer-match-index ,len *pos*))
 	 (declare (optimize speed (safety 0)))
-	 (when (> (the integer-match-index (+ *pos* ,len)) (the integer-match-index (length (target))))
+	 (when (> (+ *pos* ,len) (length (target)))
 	   (fail))
 	 (values))))
  
@@ -77,21 +75,20 @@
 	     (peek ,len)
 	   (eat-unchecked ,len)))))
 
-  (defun-speedy eat-unchecked (&optional (len 1))
-    (declare (optimize speed (safety 0)))
-    (declare (type integer-match-index len *pos*))
-    (incf *pos* len)
-    (values))
+  (defmacro eat-unchecked (&optional (len 1))
+    `(locally
+	 (declare (optimize speed (safety 0)) (type integer-match-index *pos*))
+       (incf *pos* ,len)
+       (values)))
 
-  (defun-speedy elt-target (i)
-    (declare (optimize speed (safety 0)))
-    (declare (type integer-match-index i))
-    (elt (target) i))
+  (defmacro elt-target (i)
+    (once-only (i)
+	       `(locally
+		    (declare (optimize speed (safety 0)) (type integer-match-index ,i))
+		  (elt (target) ,i))))
 
-  (defun-speedy peek-one-unchecked (&optional (i 0))
-    (declare (optimize speed (safety 0)))
-    (declare (type integer-match-index i *pos*))
-    (elt-target (+ *pos* i)))
+  (defmacro peek-one-unchecked (&optional (i 0))
+    `(elt-target (+ *pos* ,i)))
 
   (defmacro peek-one (&optional (i 0))
     (once-only (i)
@@ -99,7 +96,7 @@
        (check-len-available (1+ ,i))
        (peek-one-unchecked ,i))))
 
-  (defun-speedy force-to-target-element-type (c)
+  (defun-consistent force-to-target-element-type (c)
     (let ((s (force-to-target-sequence c)))
       (assert (= 1 (length s)))
       (elt s 0)))

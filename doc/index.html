@@ -73,6 +73,91 @@
 
     <p>Here are some <a href="downloads/">snapshots</a>.</p>
 
+    <h3>Implementation</h3>
+
+    <P> The string matcher is generated with macros, and is completely
+    inlined. It does not build a state machine (DFA) lookup table but uses
+      case statements to implement the state machine in native
+    code.</P>
+
+    <P>First the matcher description is translated to an intermediate
+      form with the following primitives:</P>
+    <ul>
+      <li>Fixed length constant string matcher. For each position in
+      the string any number of characters may be accepted. For example
+      the expression in traditional regexps "depot[A-Z](1|2)" is
+	considered as a constant string.</li>
+      <li>Finite list of choices. For example "(or (integer)
+	"undefined")".</li>
+      <li>Sequence of other matchers in order.</li>
+      <li>Any other lisp form.</li>
+    </ul>
+
+    <P>A few transforms are applied to the intermediate form, then it
+      is output as Lisp, which will hopefully be compiled to efficient native
+      machine code by the Lisp environment.</P>
+
+    <P> One particular case that has been optimised a little is that
+      of searching for a constant string. The algorithm used is
+      <a href="http://en.wikipedia.org/wiki/Boyer_-_Moore_string_search_algorithm">Boyer-Moore</a>, but implementation has some unusual
+      facets.</P>
+
+    <ul>
+      <li>Native code generated.</li>
+      <li>Does not fall back to a slow matcher if the last
+	character of the needle string is matched in the
+	haystack, but continues to apply the algorithm to the rest of
+	the needle.</li>
+      <li>Can be applied not only to simple string needles but any
+	fixed length constant matcher as described above, so, for
+	example, it can quickly search for a case insensitive needle.</li>
+    </ul>
+
+    <h3>Benchmark against other regex implementations</h3>
+
+    <P>It is very irritating when people two different spellings for
+    the same word. cl-irregsexp can however search for both nearly as
+    fast as it can search for just one.
+
+    <P>To demonstrate its efficiency, I chose to compare how long it
+      takes to search for "indecipherable" or "undecipherable" in a long
+      string, among many regex implementations.</P>
+
+    <P>The string was one million random lowercase letters followed by
+    "undecipherable". Each implementation had to read in the string to
+    memory and then print out how many milliseconds it took to search
+    it for the two possibilities. Just to be safe, it also has to
+    print the position in the string where the word was found.
+
+    <P>To make the test more statistically valid, most implementations
+      repeat the search 1000 times and print out the average number of
+      milliseconds. In this case, to make the tests comparable, the
+      implementations all abort if the string is ever found at a wrong
+      position.</P>
+
+    <h4>Notes on the benchmark implementations</h4>
+    
+    <P>The source code for all is available in
+    the <a href="downloads/">cl-irregsexp download</a> in the bench/
+      directory.</P>
+
+    <P>Ruby has the smallest and neatest benchmark program. It gets
+      the award for concision. Perl has the implementation involving
+      the most one character global variables. It wins the second
+      prize for speed and the first prize for being impenetrable to
+      language dilettantes.</P>
+
+    <P>If you fancy sending in an example for another regexp
+      implementation, I'd be pleased to add it!</P>
+
+    <h4>Generating the test data</h4>
+
+    <p> Here are the commands to make the data in the bash shell.
+      
+    <pre>$ cat /dev/urandom | tr -d -c abcdefghijklmnopqrstuvwxyz | dd bs=1 count=1000000 > test-data
+$ echo undecipherable >> test-data
+</pre>    
+
     <h3>Project members</h3>
     <pre><!--#include virtual="../../pprinted-project-members/cl-irregsexp" --></pre>
 

@@ -1,5 +1,7 @@
 (in-package #:cl-irregsexp)
 
+(declaim (inline utf8-char-length))
+(declaim (ftype (function (character) (integer 1 4)) utf8-char-length))
 (defun utf8-char-length (char)
   (declare (type character char))
   (let ((code (char-code char)))
@@ -7,8 +9,6 @@
 	  ((> #x800 code) 2)
 	  ((> #x10000 code) 3)
 	  (t 4))))
-(declaim (inline utf8-char-length))
-(declaim (ftype (function (character) (integer 1 4)) utf8-char-length))
 
 (defun utf8-encode-really (string)
   (declare (optimize speed))

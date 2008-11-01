@@ -104,16 +104,15 @@
   (loop for p in (decider-paths decider) maximizing (length (path-prefix p))))
 
 (defun decider-possible (decider i)
-  (apply 'concatenate 'list (map 'list (lambda(p)(force-sequence (elt (path-prefix p) i))) (decider-paths decider))))
+  (reduce (lambda(&optional x y) (union x y :test 'eql)) 
+	  (map 'list (lambda(p) (force-list (elt (path-prefix p) i))) (decider-paths decider))))
 
 (defun maybe-build-fast-decider (paths end)
   ;; if all the path prefices are the same except for at one point
   (let (point (len (loop for p in paths
 			 minimizing (length (path-prefix p)))))
-    (labels ((subset-p (superset set)
-	       (every (lambda(e) (some (lambda(d) (eql d e)) (force-sequence superset))) (force-sequence set)))
-	     (set-eq (a b)
-	       (and (subset-p a b) (subset-p b a)))
+    (labels ((set-eq (a b)
+	       (not (set-exclusive-or (force-list a) (force-list b) :test 'eql)))
 	     (differing-point (a b)
 	       (let ((i 0))
 		 (map 'nil 
