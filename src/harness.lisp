@@ -4,14 +4,12 @@
   `(integer 0 ,(floor most-positive-fixnum 3)))
 
 (defmacro fail ()
-  (error "fail called out of a with-fail"))
-
-(eval-when (:compile-toplevel :load-toplevel)
-  (pushnew 'target *type-specific-match-functions*))
+  (error "fail called outside a with-fail"))
 
 (defmacro with-fail (body &body fail-actions)
   (assert fail-actions)
   `(flet ((fail () ,@fail-actions (error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))
+     (declare (ftype (function nil nil) fail))
      ,body))
 
 (defmacro with-save-restore-pos (&body body)
@@ -45,8 +43,7 @@
   (defmacro check-len-available (len)
     (once-only (len)
       `(locally
-	   (declare (type integer-match-index ,len pos))
-	 (declare (optimize speed (safety 0)))
+	   (declare (type integer-match-index ,len pos) (optimize speed (safety 0)))
 	 (when (> (+ pos ,len) (length target))
 	   (fail))
 	 (values))))
@@ -60,17 +57,14 @@
 
   (defmacro eat (&optional (len 1))
     (once-only (len)
-      `(locally
-	   (declare (type integer-match-index ,len))
-	 (prog1
-	     (peek ,len)
-	   (eat-unchecked ,len)))))
+      `(prog1
+	   (peek ,len)
+	 (eat-unchecked ,len))))
 
   (defmacro eat-unchecked (&optional (len 1))
     `(locally
 	 (declare (optimize speed (safety 0)) (type integer-match-index pos))
-       (incf pos ,len)
-       (values)))
+       (incf pos ,len) (values)))
 
   (defmacro elt-target (i)
     (once-only (i)
@@ -116,16 +110,14 @@
 (defmacro with-match ( (target &key (on-failure '(error 'match-failed))) &body body)
   (with-unique-names (bv s)
     (once-only (target)
-      `(flet ((fail ()
-		,on-failure
-		(error "top-level fail returned")))
-	 (flet ((,bv () ;; use separate flets so poor SBCL does not struggle so much with large matches
-		  (with-match-env (simple-byte-vector ,target)
-		    ,@body))
-		(,s ()
-		  (with-match-env (simple-string ,target)
+      `(with-fail
+	   (flet ((,bv () ;; use separate flets so poor SBCL does not struggle so much with large matches
+		    (with-match-env (simple-byte-vector ,target)
+		      ,@body))
+		  (,s ()
+		    (with-match-env (simple-string ,target)
 		    ,@body)))
-	 (declare (inline ,bv ,s))
-	 (etypecase ,target
-	   (byte-vector (,bv))
-	   (string (,s))))))))
+	     (etypecase ,target
+	       (byte-vector (,bv))
+	       (string (,s))))
+	 ,on-failure))))
