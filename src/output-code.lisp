@@ -7,7 +7,7 @@
 
 (defmethod output-match-until-code ((match-end match-end))
   (declare (ignore match-end))
-  `(setf *pos* (length (target))))
+  `(setf pos (length (target))))
 
 (defmethod output-code ((choice choice))
   (let ((decider (choice-to-fast-decider choice)))
@@ -19,8 +19,8 @@
     (cond ((not (rest options))
 	   (output-code (first options)))
 	  (t
-	   (with-unique-names (choice-block saved-pos)
-	     `(let ((,saved-pos *pos*))
+	   (with-unique-names (choice-block)
+	     `(with-save-restore-pos
 		(block ,choice-block
 		,@(loop for o in (butlast options) collect
 			  `(with-match-block
@@ -28,18 +28,18 @@
 				   (return-from ,choice-block ,(output-code o))
 				 (return-from-match-block)))
 			collect
-			`(setf *pos* ,saved-pos))
+			`(restore-pos))
 		,(output-code (first (last options))))))))))
 
 (defun choice-output-match-until-code (choice)
   (with-unique-names (end)
     `(with-match-block
-       (let ((,end *pos*))
+       (let ((,end pos))
 	 (with-fail
 	     (progn
 	       ,(choice-output-code choice)
 	       ,end)
-	   (setf *pos* ,end)
+	   (setf pos ,end)
 	   (eat 1)
 	   (match-block-restart))))))
 
@@ -97,7 +97,7 @@
 (defmethod output-match-until-code ((decider decider))
   (with-unique-names (end)
     `(with-match-block
-	 (let ((,end *pos*))
+	 (let ((,end pos))
 	   (cond ((> ,(decider-len decider) (len-available))
 		  ,(decider-end decider))
 		 (t
@@ -119,6 +119,6 @@
 				       (t (eat-unchecked ,(1+ i)) (match-block-restart)))))))
 		   (with-fail
 		       ,(output-finish-match-code decider)
-		     (setf *pos* (1+ ,end)) 
+		     (setf pos (1+ ,end)) 
 		     (match-block-restart))))
 	   ,end))))

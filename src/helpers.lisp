@@ -1,13 +1,13 @@
 (in-package #:cl-irregsexp)
 
 (defmacro try-match (&body body)
-  (with-unique-names (saved-pos try-match-block)
-    `(let ((,saved-pos *pos*))
+  (with-unique-names (try-match-block)
+    `(with-save-restore-pos
        (block ,try-match-block
 	 (with-fail
 	     (progn
 	       ,@body)
-	   (setf *pos* ,saved-pos)
+	   (restore-pos)
 	   (return-from ,try-match-block 'match-failed))))))
 
 
@@ -16,17 +16,16 @@
     (output-match-until-code (simplify-seq matches)))
   
   (defmacro match-until-and-eat (&rest matches)
-    `(subseq (target) *pos* (match-until-internal ,@matches))))
+    `(subseq target pos (match-until-internal ,@matches))))
 
 (defmacro match-all (&rest options)
-  (with-unique-names (saved-pos)
-    `(let ((,saved-pos *pos*))
+  `(with-save-restore-pos
        ,@(loop for opt in options collect
-	       `(progn (setf *pos* ,saved-pos)
-		       ,opt)))))
+	       `(progn (restore-pos)
+		       ,opt))))
 
 (defsimplifier match-until (&rest matches)
-  `(setf *pos* (match-until-internal ,@matches)))
+  `(setf pos (match-until-internal ,@matches)))
 
 (defsimplifier match-any (&body body)
   (let ((choices 
@@ -80,9 +79,9 @@
 		  ,@matches)))
        ,(case optional-extra
 	      ((nil))
-	      ((t) `(loop for ,p = *pos* do (try-match ,@matches) until (= ,p *pos*)))
+	      ((t) `(loop for ,p = pos do (try-match ,@matches) until (= ,p pos)))
 	      (otherwise `(loop for ,i below ,optional-extra 
-				for ,p = *pos* do (try-match ,@matches) until (= ,p *pos*)))))))
+				for ,p = pos do (try-match ,@matches) until (= ,p pos)))))))
 
 
 (defsimplifier match-one-or-more (&rest matches)
@@ -108,7 +107,7 @@
 (defun generate-unsigned-matcher (base largest)
   (declare (type (integer 2 36) base))
   (let ((val-type `(integer 0 ,(or largest '*))))
-    `(let ((val 0) (start *pos*))
+    `(let ((val 0) (start pos))
        (loop for digit of-type (or null (integer 0 ,(1- base))) = ,(generate-digit-matcher base '(peek-one))
 	     while digit
 	     do 
@@ -122,7 +121,7 @@
 		       (the ,val-type (+ (* old-val ,base) digit))))
 	       (eat-unchecked 1))
 	     until (zerop (len-available)))
-       (when (= *pos* start)
+       (when (= pos start)
 	 (fail))
        (the ,val-type val))))
 

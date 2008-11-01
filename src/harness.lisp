@@ -6,21 +6,6 @@
 (defmacro fail ()
   (error "fail called out of a with-fail"))
 
-(defvar *target* "")
-(defvar *pos* 0)
-(declaim (type integer-match-index *pos*))
-
-(defmacro def-target ()
-  `(progn
-     ,@(loop for type in *specialized-types*
-	     for func = (specialized-func-symbol 'target type)
-	     collect
-	     `(defmacro ,func ()
-		`(locally		
-		     (declare (optimize speed (safety 0)) (type ,',type *target*))
-		   *target*)))))
-(def-target)
-
 (eval-when (:compile-toplevel :load-toplevel)
   (pushnew 'target *type-specific-match-functions*))
 
@@ -28,6 +13,12 @@
   (assert fail-actions)
   `(flet ((fail () ,@fail-actions (error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))
      ,body))
+
+(defmacro with-save-restore-pos (&body body)
+  (with-unique-names (saved-pos)
+    `(let ((,saved-pos pos))
+       (flet ((restore-pos () (setf pos ,saved-pos)))
+	 ,@body))))
 
 (defmacro with-match-block (&body body)
   (with-unique-names (match-block restart)
@@ -49,23 +40,23 @@
     `(force ,v))
 
   (defmacro len-available ()
-    `(- (length (target)) *pos*))
+    `(- (length target) pos))
 
   (defmacro check-len-available (len)
     (once-only (len)
       `(locally
-	   (declare (type integer-match-index ,len *pos*))
+	   (declare (type integer-match-index ,len pos))
 	 (declare (optimize speed (safety 0)))
-	 (when (> (+ *pos* ,len) (length (target)))
+	 (when (> (+ pos ,len) (length target))
 	   (fail))
 	 (values))))
  
   (defmacro peek (&optional (len '(len-available)))
     (once-only (len)
       `(locally    
-	   (declare (type integer-match-index ,len *pos*))
+	   (declare (type integer-match-index ,len pos))
 	 (check-len-available ,len)
-	 (subseq (target) *pos* (+ *pos* ,len)))))
+	 (subseq target pos (+ pos ,len)))))
 
   (defmacro eat (&optional (len 1))
     (once-only (len)
@@ -77,18 +68,18 @@
 
   (defmacro eat-unchecked (&optional (len 1))
     `(locally
-	 (declare (optimize speed (safety 0)) (type integer-match-index *pos*))
-       (incf *pos* ,len)
+	 (declare (optimize speed (safety 0)) (type integer-match-index pos))
+       (incf pos ,len)
        (values)))
 
   (defmacro elt-target (i)
     (once-only (i)
-	       `(locally
-		    (declare (optimize speed (safety 0)) (type integer-match-index ,i))
-		  (elt (target) ,i))))
+      `(locally
+	   (declare (optimize speed (safety 0)) (type integer-match-index ,i))
+	 (elt target ,i))))
 
   (defmacro peek-one-unchecked (&optional (i 0))
-    `(elt-target (+ *pos* ,i)))
+    `(elt-target (+ pos ,i)))
 
   (defmacro peek-one (&optional (i 0))
     (once-only (i)
@@ -118,11 +109,9 @@
 (defmacro with-match-env ((type target) &body body)
   (check-type type symbol)
   `(with-specialized-match-functions (,type)
-     (let ((*target* (force-to-target-sequence ,target)))
-       (declare (type ,type *target*))
-       (declare (optimize speed))
+     (let ((target (force-to-target-sequence ,target)) (pos 0))
+       (declare (type ,type target) (type integer-match-index pos) (optimize speed))
        ,(output-code (simplify-seq body)))))
-
 
 (defmacro with-match ( (target &key (on-failure '(error 'match-failed))) &body body)
   (with-unique-names (bv s)
@@ -137,8 +126,6 @@
 		  (with-match-env (simple-string ,target)
 		    ,@body)))
 	 (declare (inline ,bv ,s))
-	 (let ((*pos* 0))
-	   (declare (type integer-match-index *pos*))
-	   (etypecase ,target
-	     (byte-vector (,bv))
-	     (string (,s)))))))))
+	 (etypecase ,target
+	   (byte-vector (,bv))
+	   (string (,s))))))))
