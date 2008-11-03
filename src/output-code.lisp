@@ -7,7 +7,7 @@
 
 (defmethod output-match-until-code ((match-end match-end))
   (declare (ignore match-end))
-  `(setf pos (length (target))))
+  `(setf pos (length target)))
 
 (defmethod output-code ((choice choice))
   (let ((decider (choice-to-fast-decider choice)))
@@ -23,10 +23,10 @@
 	     `(with-save-restore-pos
 		(block ,choice-block
 		,@(loop for o in (butlast options) collect
-			  `(with-match-block
-			       (with-fail
-				   (return-from ,choice-block ,(output-code o))
-				 (return-from-match-block)))
+			`(with-match-block
+			   (with-fail
+			       (return-from ,choice-block ,(output-code o))
+			     (return-from-match-block)))
 			collect
 			`(restore-pos))
 		,(output-code (first (last options))))))))))

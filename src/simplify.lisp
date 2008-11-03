@@ -26,9 +26,9 @@
 	      `(defmacro ,name (&whole ,whole &rest unused)
 		 (declare (ignore unused))
 		 (with-unique-names (saved-pos)
-		   `(let ((,saved-pos *pos*))
+		   `(let ((,saved-pos pos))
 		      ,(output-simplified ,whole)
-		      (subseq *target* ,saved-pos *pos*)))))
+		      (subseq target ,saved-pos pos)))))
        ',name)))
 
 (defun simplify (form)

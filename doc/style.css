@@ -52,3 +52,7 @@
 .check a:hover { font-weight:bold;
 		 color:#000000;
 		 text-decoration:underline; }
+
+.bar { background-color: #336699; 
+       display:block;
+       display:inline-block;}

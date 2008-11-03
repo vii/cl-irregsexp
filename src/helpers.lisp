@@ -141,6 +141,17 @@
 
 
 (with-define-specialized-match-functions
+  (defmacro match-float (&optional (base 10))
+    (assert (constantp base))
+    (with-unique-names (whole-part fraction old-pos)
+      `(let ((,whole-part (match-integer ,base)))
+	 (cond ((or (zerop (len-available)) (not (eql (force-to-target-element-type #\.) (peek-one))))
+		,whole-part)
+	       (t (eat-unchecked 1)
+		  (let ((,old-pos pos))
+		    (let ((,fraction (match-unsigned-integer ,base)))
+		      (* (signum ,whole-part) (+ (abs ,whole-part) (/ ,fraction (expt ,base (- pos ,old-pos))))))))))))
+
   (defmacro match-integer (&optional (base 10))
     (generate-integer-matcher base nil nil))
 

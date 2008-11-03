@@ -1,6 +1,6 @@
 (in-package #:cl-irregsexp)
 
-(defconstant +match-bind-operator-abbreviations+
+(defvar *match-bind-operator-abbreviations*
   '(
     (+ . match-one-or-more)
     (* . match-zero-or-more)
@@ -11,22 +11,23 @@
     (or . match-any)))
 
 
-(defconstant +match-bind-function-abbreviations+
+(defvar *match-bind-function-abbreviations*
   '(
     (- . match-element-range)
     (integer . match-integer)
     (unsigned-byte . match-unsigned-integer)
     (fixnum . match-fixnum)
+    (float . match-float)
     (space . match-one-whitespace)
     (last . match-end)
     (char . eat)
     (string . eat)))
 
 (defun operator-abbreviation (form)
-  (cdr (assoc (first form) +match-bind-operator-abbreviations+)))
+  (cdr (assoc (first form) *match-bind-operator-abbreviations*)))
 
 (defun function-abbreviation (form)
-  (cdr (assoc (first form) +match-bind-function-abbreviations+)))
+  (cdr (assoc (first form) *match-bind-function-abbreviations*)))
 
 (define-condition match-failed 
     (error)

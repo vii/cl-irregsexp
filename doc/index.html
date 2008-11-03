@@ -90,6 +90,7 @@
       <li>Finite list of choices. For example "(or (integer)
 	"undefined")".</li>
       <li>Sequence of other matchers in order.</li>
+      <li>An object that only matches the end of the string.</li>
       <li>Any other lisp form.</li>
     </ul>
 
@@ -116,36 +117,71 @@
     <h3>Benchmark against other regex implementations</h3>
 
     <P>It is very irritating when people two different spellings for
-    the same word. cl-irregsexp can however search for both nearly as
+    the same word. cl-irregsexp can sometimes search for both nearly as
     fast as it can search for just one.
 
     <P>To demonstrate its efficiency, I chose to compare how long it
       takes to search for "indecipherable" or "undecipherable" in a long
       string, among many regex implementations.</P>
 
-    <P>The string was one million random lowercase letters followed by
-    "undecipherable". Each implementation had to read in the string to
-    memory and then print out how many milliseconds it took to search
+    <P>The haystack was one million random lowercase letters followed by
+    "undecipherable". Each implementation reads the haystack into
+    memory and then prints out how many milliseconds it took to search
     it for the two possibilities. Just to be safe, it also has to
-    print the position in the string where the word was found.
+    print the offset where the needle was found.
 
-    <P>To make the test more statistically valid, most implementations
-      repeat the search 1000 times and print out the average number of
-      milliseconds. In this case, to make the tests comparable, the
-      implementations all abort if the string is ever found at a wrong
-      position.</P>
+    <P>To make the test results less susceptible to slow starts from
+    caches and branch prediction units, most implementations repeat
+    the search 1000 times and print out the average number of
+    milliseconds. The implementations all abort if the string is ever
+    found at an incorrect position.</P>
+<table>
+  <thead><tr><th>Implementation</th><th style="width: 100%">Time (s), smaller is better</th></tr></thead>
+  <tbody>
+
+<tr><td>cl-ppcre.closure</td><td><span class=bar style="width: 57.88%">.</span>122.56</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 60.00%">.</span>127.05</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 55.19%">.</span>116.87</td></tr>
+<tr><td>cl-ppcre.sbcl</td><td><span class=bar style="width: 33.04%">.</span>69.97</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 34.73%">.</span>73.54</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 31.32%">.</span>66.31</td></tr>
+<tr><td>ruby.rb</td><td><span class=bar style="width: 10.79%">.</span>22.84</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 11.24%">.</span>23.80</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 9.93%">.</span>21.02</td></tr>
+<tr><td>pcre</td><td><span class=bar style="width: 9.73%">.</span>20.60</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 9.54%">.</span>20.21</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 8.83%">.</span>18.69</td></tr>
+<tr><td>python.py</td><td><span class=bar style="width: 8.95%">.</span>18.95</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 9.11%">.</span>19.30</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 8.14%">.</span>17.23</td></tr>
+<tr><td>perl.pl</td><td><span class=bar style="width: 4.70%">.</span>9.95</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 4.75%">.</span>10.06</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 4.90%">.</span>10.39</td></tr>
+<tr><td>cl-irregsexp.closure</td><td><span class=bar style="width: 4.08%">.</span>8.63</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 4.22%">.</span>8.93</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 4.01%">.</span>8.49</td></tr>
+<tr><td>cl-irregsexp.sbcl</td><td><span class=bar style="width: 1.63%">.</span>3.46</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 1.63%">.</span>3.46</td></tr>
+<tr><td>-</td><td><span class=bar style="width: 1.61%">.</span>3.41</td></tr>
+
+</tbody></table>
 
     <h4>Notes on the benchmark implementations</h4>
     
     <P>The source code for all is available in
-    the <a href="downloads/">cl-irregsexp download</a> in the bench/
+      the <a href="downloads/">cl-irregsexp download</a> in the bench/
       directory.</P>
 
     <P>Ruby has the smallest and neatest benchmark program. It gets
-      the award for concision. Perl has the implementation involving
-      the most one character global variables. It wins the second
-      prize for speed and the first prize for being impenetrable to
-      language dilettantes.</P>
+      the award for concision.</P>
+
+    <P>Perl has the implementation involving the most one character
+      global variables. It wins the second prize for speed and the
+      first prize for being impenetrable to language dilettanti.</P>
+
+    <P>I also tried with clisp (a Common Lisp implementation that
+    compiles to byte code). It took 115.95s with cl-irregsexp but a
+    massive 2622.48s with cl-ppcre, so I did not include it in the results.
 
     <P>If you fancy sending in an example for another regexp
       implementation, I'd be pleased to add it!</P>
@@ -156,7 +192,15 @@
       
     <pre>$ cat /dev/urandom | tr -d -c abcdefghijklmnopqrstuvwxyz | dd bs=1 count=1000000 > test-data
 $ echo undecipherable >> test-data
-</pre>    
+</pre>
+
+    <h4>Even faster</h4>
+
+    <p>The code generated calculates a skip distance by doing a (case
+      (peek-one-character) ...). SBCL unfortunately translates this
+      into a sequence of conditional jumps apparently independently of
+      the number of different cases. At some point it is surely better
+      to use a jump table.</p>
 
     <h3>Project members</h3>
     <pre><!--#include virtual="../../pprinted-project-members/cl-irregsexp" --></pre>
