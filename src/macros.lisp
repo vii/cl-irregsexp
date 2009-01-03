@@ -57,3 +57,25 @@
 	     `(declaim (ftype (function ,input-type ,output-type) ,n)))))
 
 (define-modify-macro appendf (&rest lists) append)
+
+(declaim (inline cdr-assoc))
+(defun cdr-assoc (alist key &key (test 'eql))
+  (cdr (assoc key alist :test test)))
+(define-setf-expander cdr-assoc (place key &key (test ''eql) &environment env)
+  (multiple-value-bind (dummies vals newval setter getter)
+      (get-setf-expansion place env)
+    (with-unique-names (store key-val test-val alist found)
+      (values 
+       (append dummies (list key-val test-val))
+       (append vals (list key test))
+       `(,store ,@newval)
+       `(let (,@(mapcar 'list dummies vals)
+	      (,alist ,getter))
+	  (let ((,found (assoc ,key-val ,alist :test ,test-val)))
+	    (cond (,found 
+		   (setf (cdr ,found) ,store))
+		  (t
+		   (setf ,(first newval) (acons ,key ,store ,alist))
+		   ,setter))
+	    ,store))
+       `(cdr-assoc ,getter)))))

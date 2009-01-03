@@ -11,6 +11,7 @@
 
 (cl:defpackage #:cl-irregsexp.utils
   (:export
+   #:cdr-assoc
    #:defun-consistent
    #:declaim-defun-consistent-ftype
    #:defun-speedy

@@ -19,7 +19,8 @@
 	     (symbol (symbol-name val))
 	     (string val)
 	     (simple-byte-vector (utf8-decode val))
-	     (byte-vector (utf8-decode (byte-vector-to-simple-byte-vector val)))
+	     (byte-vector (utf8-decode (byte-vector-to-simple-byte-vector 
+					(the (and byte-vector (not simple-byte-vector)) val))))
 	     (t  (let ((*print-pretty* nil)) (princ-to-string val)))))))
     (etypecase str
       (simple-string str)

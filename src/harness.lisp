@@ -9,7 +9,7 @@
 (defmacro with-fail (body &body fail-actions)
   (assert fail-actions)
   `(flet ((fail () ,@fail-actions (error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))
-     (declare (ftype (function nil nil) fail))
+     (declare (ftype (function nil nil) fail) (ignorable (function fail)))
      ,body))
 
 (defmacro with-save-restore-pos (&body body)
