@@ -109,6 +109,8 @@
 
 (defun generate-unsigned-matcher (&key (base 10) largest max-len min-len)
   (check-type base (integer 2 36))
+  (when (and max-len (constantp max-len) (not largest))
+    (setf largest (expt base (eval max-len))))
   (let ((val-type `(integer 0 ,(or largest '*))))
     `(let ((val 0) (start pos)
 	   (max-pos 

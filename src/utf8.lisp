@@ -48,14 +48,14 @@
 (defun-consistent utf8-encode (str)
   (declare (type simple-string str))
   (declare (optimize speed))
-  (block encode
-    (let ((vec (make-byte-vector (length str))))
-      (loop for i fixnum from 0 for s across str do
-	    (let ((c (char-code s)))
-	      (when (<= #x80 c)
-		(return-from encode (utf8-encode-really str)))
-	      (setf (aref vec i) c)))
-      vec)))
+  (let ((vec (make-byte-vector (length str))))
+    (loop for i fixnum from 0 for s across str do
+	  (let ((c (char-code s)))
+	    (when (<= #x80 c)
+	      (setf vec (utf8-encode-really str))
+	      (return))
+	    (setf (aref vec i) c)))
+    vec))
 
 #+cl-irregsexp-big-characters-in-strings      
 (defun-consistent utf8-decode (vec)
