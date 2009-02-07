@@ -99,6 +99,8 @@
     `(with-match-block
 	 (let ((,end pos))
 	   (cond ((> ,(decider-len decider) (len-available))
+		  (setf ,end (length target))
+		  (setf pos (length target))
 		  ,(decider-end decider))
 		 (t
 		  ,@(let ((table (decider-skip-table decider)))

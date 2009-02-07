@@ -10,7 +10,7 @@
 			       ,after)
 		      ,string
 		      (values ,before ,replacement-text ,after)
-		      (values nil nil nil)))))
+		      nil))))
 
 (defun-speedy concat-byte-vector (seqs)
   (let ((len (loop for s in seqs summing (length (the byte-vector s)))))
