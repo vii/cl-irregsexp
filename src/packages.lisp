@@ -11,7 +11,7 @@
 
 (cl:defpackage #:cl-irregsexp.utils
   (:export
-   #:cdr-assoc
+   #:alist-get
    #:defun-consistent
    #:declaim-defun-consistent-ftype
    #:defun-speedy
@@ -29,6 +29,7 @@
   (:export 
    #:match-failed
    #:match-bind
+   #:match-split
    #:if-match-bind
    #:match-replace-all
    #:match-replace-one))

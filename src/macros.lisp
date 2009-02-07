@@ -58,24 +58,39 @@
 
 (define-modify-macro appendf (&rest lists) append)
 
-(declaim (inline cdr-assoc))
-(defun cdr-assoc (alist key &key (test 'eql))
-  (cdr (assoc key alist :test test)))
-(define-setf-expander cdr-assoc (place key &key (test ''eql) &environment env)
-  (multiple-value-bind (dummies vals newval setter getter)
-      (get-setf-expansion place env)
-    (with-unique-names (store key-val test-val alist found)
-      (values 
-       (append dummies (list key-val test-val))
-       (append vals (list key test))
-       `(,store ,@newval)
-       `(let (,@(mapcar 'list dummies vals)
-	      (,alist ,getter))
-	  (let ((,found (assoc ,key-val ,alist :test ,test-val)))
-	    (cond (,found 
-		   (setf (cdr ,found) ,store))
-		  (t
-		   (setf ,(first newval) (acons ,key ,store ,alist))
-		   ,setter))
-	    ,store))
-       `(cdr-assoc ,getter)))))
+(declaim (inline racons))
+(defun racons (key value ralist)
+  (acons value key ralist))
+
+
+(macrolet ((define-alist-get (name get-pair get-value-from-pair add)
+	     `(progn
+		(declaim (inline ,name))
+		(defun ,name (alist key &key (test 'eql))
+		  (let ((pair (,get-pair key alist :test test)))
+		    (values (,get-value-from-pair pair) pair)))
+		(define-setf-expander ,name (place key &key (test ''eql)
+					     &environment env)
+		  (multiple-value-bind (dummies vals newvals setter getter)
+		      (get-setf-expansion place env)
+		    (when (cdr newvals)
+		      (error "~A cannot store multiple values in one place" ',name))
+		    (with-unique-names (store key-val test-val alist found)
+		      (values 
+		       (list key-val test-val)
+		       (list key test)
+		       (list store)
+		       `(let (,@(mapcar 'list dummies vals)
+			      (,alist ,getter))
+			  (let ((,found (,',get-pair ,key-val ,alist :test ,test-val)))
+			    (cond (,found 
+				   (setf (,',get-value-from-pair ,found) ,store))
+				  (t
+				   (let ,newvals
+				     (setf ,(first newvals) (,',add ,key ,store ,alist))
+				     ,setter)))
+			    ,store))
+		       `(,',name ,getter ,key))))))))
+  (define-alist-get alist-get assoc cdr acons)
+  (define-alist-get ralist-get rassoc car racons))
+

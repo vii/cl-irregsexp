@@ -44,7 +44,7 @@
   (:documentation "Raised when the bindings in a match-bind do not match the target string"))
 
 (defun set-match-bind-macro (name function)
-  (setf (cdr-assoc *match-bind-macros* name)
+  (setf (alist-get *match-bind-macros* name)
 	function))
 
 (defun match-bind-macro-body (lambda-list body)
@@ -112,7 +112,7 @@
 
 (defmacro match-bind-internal (args-for-with-match bindings &body body &environment env)
   (multiple-value-bind (forms vars)
-      (generate-match-bind bindings env)
+      (generate-match-bind (force-list bindings) env)
     `(let ,vars
        (with-match ,args-for-with-match
 	 ,@forms)

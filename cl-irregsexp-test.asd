@@ -16,7 +16,8 @@
 				     (:file "bind" :depends-on ("suite"))
 				     (:file "find" :depends-on ("suite"))
 				     (:file "utf8" :depends-on ("suite"))
-				     (:file "replace" :depends-on ("suite")))))
+				     (:file "replace" :depends-on ("suite"))
+				     (:file "split" :depends-on ("suite")))))
   :depends-on (
 	       :fiveam
 	       :cl-irregsexp))

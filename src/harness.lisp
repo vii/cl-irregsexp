@@ -9,13 +9,15 @@
 (defmacro with-fail (body &body fail-actions)
   (assert fail-actions)
   `(flet ((fail () ,@fail-actions (error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))
-     (declare (ftype (function nil nil) fail) (ignorable (function fail)))
+     (declare (ftype (function nil nil) fail) (ignorable #'fail) (dynamic-extent #'fail))
      ,body))
 
 (defmacro with-save-restore-pos (&body body)
   (with-unique-names (saved-pos)
     `(let ((,saved-pos pos))
+       (declare (dynamic-extent ,saved-pos))
        (flet ((restore-pos () (setf pos ,saved-pos)))
+	 (declare (dynamic-extent #'restore-pos))
 	 ,@body))))
 
 (defmacro with-match-block (&body body)

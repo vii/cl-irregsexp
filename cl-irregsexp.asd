@@ -23,7 +23,8 @@
 				     (:file "simplify" :depends-on ("type-specializations" "ir"))
 				     (:file "helpers" :depends-on ("harness"))
 				     (:file "bind" :depends-on ("helpers" "harness"))
-				     (:file "replace" :depends-on ("bind" "byte-vector")))))
+				     (:file "replace" :depends-on ("bind" "byte-vector"))
+				     (:file "split" :depends-on ("bind")))))
   :depends-on (
 	       :iterate
 	       :cl-utilities))
