@@ -43,6 +43,9 @@
     (when (eql #x100 (ignore-errors (char-code (code-char #x100))))
       (pushnew :cl-irregsexp-big-characters-in-strings *features*)
       `(pushnew :cl-irregsexp-big-characters-in-strings *features*)))
+
+(declaim-defun-consistent-ftype utf8-decode (simple-byte-vector) string)
+(declaim-defun-consistent-ftype utf8-encode (simple-string) simple-byte-vector)
 		       
 #+cl-irregsexp-big-characters-in-strings      
 (defun-consistent utf8-encode (str)
@@ -62,6 +65,7 @@
   (declare (type simple-byte-vector vec))
   (utf8-decode-really vec))
 
+(declaim (ftype (function (simple-byte-vector) string) utf8-decode-really))
 (defun utf8-decode-really (vec)
   (declare (type simple-byte-vector vec))
   (let ((str (make-string (length vec))))
@@ -73,7 +77,8 @@
 	       (code-char #xfffd))
 	     (done? ()
 	       (when (>= i len)
-		 (return-from decode (subseq str 0 j))))
+		 (setf str (subseq str 0 j))
+		 (return-from decode)))
 	     (inc ()
 	       (incf i)
 	       (done?))
@@ -103,7 +108,8 @@
 		do
 		(setf (schar str j) (eat))
 		(incf j)
-		(inc)))))))
+		(inc)))))
+      str))
 
 
 

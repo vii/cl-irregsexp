@@ -1,12 +1,12 @@
 (in-package #:cl-irregsexp)
 
 (defmethod output-code ((match-end match-end))
-  (declare (ignore match-end))
+  (declare (ignorable match-end))
   `(unless (zerop (len-available))
      (fail)))
 
 (defmethod output-match-until-code ((match-end match-end))
-  (declare (ignore match-end))
+  (declare (ignorable match-end))
   `(setf pos (length target)))
 
 (defmethod output-code ((choice choice))

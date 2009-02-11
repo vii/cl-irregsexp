@@ -1,8 +1,15 @@
 (in-package #:cl-irregsexp)
 
-(declaim-defun-consistent-ftype byte-vector-to-simple-byte-vector ((and byte-vector (not simple-byte-vector))) simple-byte-vector)
+(declaim-defun-consistent-ftype byte-vector-to-simple-byte-vector 
+				((and byte-vector 
+				      #-sbcl ; type inference gets confused 
+				      (not simple-byte-vector))) simple-byte-vector)
+
 (defun-consistent byte-vector-to-simple-byte-vector (val)
-  (declare (type (and byte-vector (not simple-byte-vector)) val))
+  (declare (type (and byte-vector 
+		      #-sbcl ; type inference gets confused
+		      (not simple-byte-vector)
+		      ) val))
   (let ((ret (make-byte-vector (length val))))
     (replace ret val)
     ret))
@@ -19,14 +26,15 @@
 	     (symbol (symbol-name val))
 	     (string val)
 	     (simple-byte-vector (utf8-decode val))
-	     (byte-vector (utf8-decode (byte-vector-to-simple-byte-vector 
-					(the (and byte-vector (not simple-byte-vector)) val))))
-	     (t  (let ((*print-pretty* nil)) (princ-to-string val)))))))
+	     (byte-vector 
+		(utf8-decode (byte-vector-to-simple-byte-vector 
+			      val)))
+	     (t  (with-standard-io-syntax (princ-to-string val)))))))
     (etypecase str
       (simple-string str)
       (string 
        (locally 
-	   (declare (type (and string (not simple-string)) str))
+	 (declare (type (and string (not simple-string)) str))
 	 (replace (make-string (length str)) str))))))
 
 
@@ -53,7 +61,9 @@
     (etypecase val
       (simple-byte-vector val)
       (byte-vector 
-       (byte-vector-to-simple-byte-vector val)))))
+       (locally
+         (declare (type (and byte-vector (not simple-byte-vector)) val))
+	 (byte-vector-to-simple-byte-vector val))))))
 
 
 
