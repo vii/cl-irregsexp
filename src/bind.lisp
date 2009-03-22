@@ -4,7 +4,7 @@
   '(
     (macrolet . error)
     (quote . error)
-
+    
     (+ . match-one-or-more)
     (* . match-zero-or-more)
     (progn . progn)
@@ -16,6 +16,7 @@
 
 (defvar *match-bind-function-abbreviations*
   '(
+    (= . literal)
     (- . match-element-range)
     (integer . match-integer)
     (unsigned-byte . match-unsigned-integer)

@@ -120,6 +120,9 @@
 		    (with-match-env (simple-string ,target)
 		    ,@body)))
 	     (etypecase ,target
+	       (null (setf ,target "") (,s))
 	       (byte-vector (,bv))
 	       (string (,s))))
 	 ,on-failure))))
+
+
