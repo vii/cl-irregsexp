@@ -77,11 +77,10 @@
 		      (error "~A cannot store multiple values in one place" ',name))
 		    (with-unique-names (store key-val test-val alist found)
 		      (values 
-		       (list key-val test-val)
-		       (list key test)
+		       (append dummies (list key-val test-val))
+		       (append vals (list key test))
 		       (list store)
-		       `(let (,@(mapcar 'list dummies vals)
-			      (,alist ,getter))
+		       `(let ((,alist ,getter))
 			  (let ((,found (,',get-pair ,key-val ,alist :test ,test-val)))
 			    (cond (,found 
 				   (setf (,',get-value-from-pair ,found) ,store))
