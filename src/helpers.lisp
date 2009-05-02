@@ -167,7 +167,7 @@
 	       (t (eat-unchecked 1)
 		  (let ((,old-pos pos))
 		    (let ((,fraction (match-unsigned-integer :base ,base)))
-		      (* (signum ,whole-part) (+ (abs ,whole-part) (/ ,fraction (expt ,base (- pos ,old-pos))))))))))))
+		      (* (if (minusp ,whole-part) -1 1) (+ (abs ,whole-part) (/ ,fraction (expt ,base (- pos ,old-pos))))))))))))
 
   (defmacro match-integer (&rest args)
     (apply 'generate-integer-matcher args))
