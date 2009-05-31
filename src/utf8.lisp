@@ -60,11 +60,6 @@
 	    (setf (aref vec i) c)))
     vec))
 
-#+cl-irregsexp-big-characters-in-strings      
-(defun-consistent utf8-decode (vec)
-  (declare (type simple-byte-vector vec))
-  (utf8-decode-really vec))
-
 (declaim (ftype (function (simple-byte-vector) string) utf8-decode-really))
 (defun utf8-decode-really (vec)
   (declare (type simple-byte-vector vec))
@@ -112,6 +107,12 @@
       str))
 
 
+(declaim (ftype (function (simple-byte-vector) string) utf8-decode-consistent-internal))
+#+cl-irregsexp-big-characters-in-strings      
+(defun-consistent utf8-decode (vec)
+  (declare (type simple-byte-vector vec))
+  (values (utf8-decode-really vec)))
+
 
 #-cl-irregsexp-big-characters-in-strings      
 (defun-consistent utf8-decode (vec)
@@ -120,3 +121,6 @@
 #-cl-irregsexp-big-characters-in-strings      
 (defun-consistent utf8-encode (string)
   (map 'byte-vector 'char-code string))
+
+
+

@@ -15,7 +15,13 @@
 (defmacro with-save-restore-pos (&body body)
   (with-unique-names (saved-pos)
     `(let ((,saved-pos pos))
-       (declare (dynamic-extent ,saved-pos))
+       (declare (dynamic-extent ,saved-pos) 		  
+		#+ccl (ignorable ,saved-pos) ; ClozureCL 1.3 will
+					     ; sometimes issue a
+					     ; spurious warning about
+					     ; unused lexical variable
+					     ; ,saved-pos
+		)
        (flet ((restore-pos () (setf pos ,saved-pos)))
 	 (declare (dynamic-extent #'restore-pos))
 	 ,@body))))

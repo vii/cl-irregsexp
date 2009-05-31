@@ -11,7 +11,7 @@
      (defsimplifier-go ,name ,lambda-list ,@body)))
 
 (defmacro defsimplifier-go (name lambda-list &body body)
-  (with-unique-names (form whole)
+  (with-unique-names (form whole unused)
     `(progn
        (eval-when (:compile-toplevel :load-toplevel :execute) 
 	 (setf (get ',name 'simplifier)
@@ -23,8 +23,8 @@
 				      (rest ,form)
 				    ,@body)))))
        ,(when (eq (symbol-package name) (symbol-package 'simplifier))
-	      `(defmacro ,name (&whole ,whole &rest unused)
-		 (declare (ignore unused))
+	      `(defmacro ,name (&whole ,whole &rest ,unused)
+		 (declare (ignore ,unused))
 		 (with-unique-names (saved-pos)
 		   `(let ((,saved-pos pos))
 		      ,(output-simplified ,whole)

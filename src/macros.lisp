@@ -47,9 +47,13 @@
 	   ,@body)
 	 #+cmucl (declaim (extensions:constant-function ,fast ,careful))
 	 (defmacro ,name (,@lambda-list &environment ,env)
-	   (if (and ,@(mapcar (lambda(l) `(load-time-constantp ,l ,env)) lambda-list))
-	       `(read-only-load-time-value (,',careful ,,@lambda-list))
-	       `(,',fast ,,@lambda-list)))))))
+	   (cond 
+	     ((and ,@(mapcar (lambda(l) `(constantp ,l)) lambda-list))
+	      (eval (list ',careful ,@lambda-list)))
+	     ((and ,@(mapcar (lambda(l) `(load-time-constantp ,l ,env)) lambda-list))
+	      `(read-only-load-time-value (,',careful ,,@lambda-list)))
+	     (t
+	      `(,',fast ,,@lambda-list))))))))
 
 (defmacro declaim-defun-consistent-ftype (name input-type output-type)
   `(progn
