@@ -62,6 +62,8 @@
 
 (declaim (ftype (function (simple-byte-vector) string) utf8-decode-really))
 (defun utf8-decode-really (vec)
+  ; decode a byte-vector in UTF8 to a string 
+  ; any bad characters or characters trying to hide in overly long sequences are encoded as char (code-char #xfffd)
   (declare (type simple-byte-vector vec))
   (let ((str (make-string (length vec))))
     (block decode
@@ -88,16 +90,23 @@
 			(limit (smallest)
 			  (if (> smallest val)
 			      (invalid)
-			      (code-char val))))
+			      (code-char val)))
+			  (safe (s)
+					; code-char may not return a
+					; char but nil, but only check
+					; in these cases as small
+					; codes should be okay
+			    (if s s (invalid))))
 		   (declare (inline start next limit))
 		   (cond ((> #x80 c)
 			  (code-char c))
 			 ((> #xc0 c) (invalid))
 			 ((> #xe0 c) (start #xc0) (next) (limit #x80))
 			 ((> #xf0 c)
-			  (start #xe0) (next)(next) (limit #x800))
+			  (start #xe0) (next)(next) (safe (limit #x800)))
 			 (t
-			  (start #xf0) (next)(next)(next) (limit #x10000)))))))
+			  (start #xf0) (next)(next)(next) (safe (limit #x10000)))
+			  )))))
 	  (done?)
 	  (loop 
 		do
@@ -105,6 +114,7 @@
 		(incf j)
 		(inc)))))
       str))
+
 
 
 (declaim (ftype (function (simple-byte-vector) string) utf8-decode-consistent-internal))

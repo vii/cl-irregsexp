@@ -1,5 +1,7 @@
 (cl:defpackage #:cl-irregsexp.bytestrings
   (:export
+   #:utf8-encode
+   #:utf8-decode
    #:force-string
    #:force-simple-string
    #:force-byte-vector
