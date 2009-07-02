@@ -105,7 +105,7 @@
 		     collect `((>= i ,(first r)) (- i ,(- (first r) (second r)))))))))
 
 (defun generate-min-ignore-nil (&rest args)
-  `(min ,@(remove-if 'not args)))
+  `(min ,@(remove-duplicates (remove-if 'not args) :test #'equal)))
 
 (defun generate-unsigned-matcher (&key (base 10) largest max-len min-len)
   (check-type base (integer 2 36))
@@ -129,8 +129,8 @@
 	       (setf val
 		     (let ((old-val val))
 			 ,(when largest 
-				`(declare ,@(when (<= largest most-positive-fixnum) (list `(optimize (safety 0))))
-					  (type (integer 0 ,(- (floor largest base) (1- base))) old-val)))
+				`(declare ,@(when (<= largest most-positive-fixnum) `((optimize (safety 0))))
+					  (type (integer 0 ,(1- (ceiling largest base))) old-val)))
 		       (the ,val-type (+ (* old-val ,base) digit))))
 	       (eat-unchecked 1))
 	     until (>= pos max-pos))
