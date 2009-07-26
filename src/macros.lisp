@@ -13,11 +13,25 @@
 (defmacro read-only-load-time-value (form)
   `(load-time-value ,form t))
 
+(defun macroexpand-and-compiler-macroexpand (form &optional env)
+  (let ((form (macroexpand form env)))
+    (when (listp form)
+      (let ((cm (compiler-macro-function (first form) env)))
+	(when cm
+	  (let ((new-form (funcall *macroexpand-hook* cm form env)))
+	    (unless (eq form new-form)
+	      (setf form (macroexpand-and-compiler-macroexpand new-form env)))))))
+    form))
+
 (defun load-time-constantp (form &optional env)
-  (ignore-errors
+  (progn 'ignore-errors
     (or (constantp form env) 
-	(let ((expansion (macroexpand form env)))
-	  (and (listp expansion) (eq 'load-time-value (first expansion)))))))
+	(let ((expansion (macroexpand-and-compiler-macroexpand form env)))
+	  (cond
+	    ((constantp expansion env)
+	     t)
+	    ((listp expansion) 
+	     (eq 'load-time-value (first expansion))))))))
 
 (defmacro defun-speedy (name lambda-list &body body)
   `(progn
@@ -33,7 +47,7 @@
        ,@body)))
 
 (defun defun-consistent-names (name)
-  (list (concat-sym name '-consistent-internal) (concat-sym name '-consistent-internal-careful)))
+  (list (concat-sym name '-consistent-internal) (concat-sym name '-consistent-internal-careful) name))
 
 (defmacro defun-consistent (name lambda-list &body body)
   (with-unique-names (env)
@@ -45,15 +59,19 @@
 	   ,@body)
 	 (defun-careful ,careful ,lambda-list
 	   ,@body)
+	 (declaim (inline ,name))
+	 (defun ,name ,lambda-list
+	   (,fast ,@lambda-list))
 	 #+cmucl (declaim (extensions:constant-function ,fast ,careful))
-	 (defmacro ,name (,@lambda-list &environment ,env)
-	   (cond 
-	     ((and ,@(mapcar (lambda(l) `(constantp ,l)) lambda-list))
-	      (eval (list ',careful ,@lambda-list)))
-	     ((and ,@(mapcar (lambda(l) `(load-time-constantp ,l ,env)) lambda-list))
-	      `(read-only-load-time-value (,',careful ,,@lambda-list)))
-	     (t
-	      `(,',fast ,,@lambda-list))))))))
+	 (define-compiler-macro ,name (,@lambda-list &environment ,env)
+	   (let ,(loop for l in lambda-list collect `(,l (macroexpand-and-compiler-macroexpand ,l ,env)))
+	    (cond 
+	      ((and ,@(mapcar (lambda(l) `(constantp ,l)) lambda-list))
+	       (eval (list ',careful ,@lambda-list)))
+	      ((and ,@(mapcar (lambda(l) `(load-time-constantp ,l ,env)) lambda-list))
+	       `(read-only-load-time-value (,',careful ,,@lambda-list)))
+	      (t
+	       `(,',fast ,,@lambda-list)))))))))
 
 (defmacro declaim-defun-consistent-ftype (name input-type output-type)
   `(progn
