@@ -13,10 +13,13 @@
 		      nil))))
 
 (defun-speedy concat-byte-vector (seqs)
-  (let ((len (loop for s in seqs summing (length (the byte-vector s)))))
-    (let ((ret (make-byte-vector len)) (i 0))
-      (loop for a in seqs do (let ((s (force-simple-byte-vector a))) (replace ret s :start1 i) (incf i (length s))))
-      ret)))
+  (cond ((rest seqs)
+	 (let ((len (loop for s in seqs summing (length (the byte-vector s)))))
+	   (let ((ret (make-byte-vector len)) (i 0))
+	     (loop for a in seqs do (let ((s (force-simple-byte-vector a))) (replace ret s :start1 i) (incf i (length s))))
+	     ret)))
+	(t
+	 (force-byte-vector (first seqs)))))
 
 (defun-speedy concat-string (seqs)
   (apply 'concatenate 'string seqs))
