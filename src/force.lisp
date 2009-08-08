@@ -2,17 +2,15 @@
 
 (declaim-defun-consistent-ftype byte-vector-to-simple-byte-vector 
 				((and byte-vector 
-				      #-sbcl ; type inference gets confused 
+				      #-sbcl
 				      (not simple-byte-vector))) simple-byte-vector)
 
 (defun-consistent byte-vector-to-simple-byte-vector (val)
   (declare (type (and byte-vector 
-		      #-sbcl ; type inference gets confused
+		      #-sbcl
 		      (not simple-byte-vector)
 		      ) val))
-  (let ((ret (make-byte-vector (length val))))
-    (replace ret val)
-    ret))
+  (the simple-byte-vector (replace (make-byte-vector (length val)) val)))
 
 
 
@@ -27,15 +25,18 @@
 	     (string val)
 	     (simple-byte-vector (utf8-decode val))
 	     (byte-vector 
-		(utf8-decode (byte-vector-to-simple-byte-vector 
-			      val)))
+	      (locally
+		  #-sbcl (declare (type (and byte-vector (not simple-byte-vector)) val))
+		  (utf8-decode (byte-vector-to-simple-byte-vector 
+				val))))
 	     (t  (with-standard-io-syntax (princ-to-string val)))))))
     (etypecase str
       (simple-string str)
       (string 
        (locally 
 	 (declare (type (and string (not simple-string)) str))
-	 (replace (make-string (length str)) str))))))
+	 (copy-seq str))))))
+
 
 
 
@@ -49,7 +50,7 @@
     (string (utf8-encode val))
     (character (utf8-encode (string val)))
     (byte-vector val)
-    (sequence (map 'byte-vector 'identity val))
+    (sequence (coerce val 'byte-vector))
     (t (utf8-encode (force-string val)))))
 
 
@@ -62,7 +63,7 @@
       (simple-byte-vector val)
       (byte-vector 
        (locally
-         (declare (type (and byte-vector (not simple-byte-vector)) val))
+         #-sbcl (declare (type (and byte-vector (not simple-byte-vector)) val))
 	 (byte-vector-to-simple-byte-vector val))))))
 
 
@@ -94,10 +95,10 @@
     (etypecase seq
       (simple-vector seq)
       (vector
-       (make-array (length seq) :element-type (array-element-type seq) :initial-contents seq))
+       (copy-seq v))
       (sequence
        (make-array (length seq) :initial-contents seq)))))
 
 
 (defun-speedy force-list (val)
-  (map 'list 'identity (force-sequence val)))
+  (coerce (force-sequence val) 'list))

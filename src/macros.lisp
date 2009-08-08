@@ -13,15 +13,18 @@
 (defmacro read-only-load-time-value (form)
   `(load-time-value ,form t))
 
+(defun compiler-macroexpand-1 (form &optional env)
+  (let ((cm (and (listp form) (compiler-macro-function (first form) env))))
+      (if cm
+	  (funcall *macroexpand-hook* cm form env)
+	  form)))
+
 (defun macroexpand-and-compiler-macroexpand (form &optional env)
-  (let ((form (macroexpand form env)))
-    (when (listp form)
-      (let ((cm (compiler-macro-function (first form) env)))
-	(when cm
-	  (let ((new-form (funcall *macroexpand-hook* cm form env)))
-	    (unless (eq form new-form)
-	      (setf form (macroexpand-and-compiler-macroexpand new-form env)))))))
-    form))
+  (loop 
+	for last-form = form then next-form
+	for next-form = (compiler-macroexpand-1 (macroexpand last-form env) env)
+	until (eq next-form last-form)
+	finally (return next-form)))
 
 (defun load-time-constantp (form &optional env)
   (progn 'ignore-errors
