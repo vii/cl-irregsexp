@@ -43,7 +43,7 @@
 
 (defsimplifier literal (value)
   (cond ((constantp value)
-	 (make-const :value (force-to-target-sequence value)))
+	 (make-const :value (force-to-target-sequence (eval value))))
 	(t `(dynamic-literal ,value))))
 
 (defsimplifier match-element-range (start-inclusive end-inclusive)

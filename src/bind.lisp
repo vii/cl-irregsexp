@@ -78,11 +78,6 @@
 		     (add
 		      `(match-until-and-eat 
 			(progn ,@(or (recurse (list (pop bindings))) (list `(match-end)))))))
-		    ((symbolp form)
-		     (push form vars)
-		     (add `(setf ,form 
-				 (match-until-and-eat 
-				  (progn ,@(or (recurse (list (pop bindings))) (list `(match-end))))))))
 		    ((listp form)
 		     (cond 
 		       ((eq 'quote (first form))
@@ -108,6 +103,12 @@
 			  (add `(setf ,(first form) ,@(recurse (list (second form))))))))
 		    ((constantp form env)
 		     (add `(literal ,form)))
+		    ((symbolp form)
+		     (push form vars)
+		     (add `(setf ,form 
+				 (match-until-and-eat 
+				  (progn ,@(or (recurse (list (pop bindings))) (list `(match-end))))))))
+		    		    
 		    (t (error "Untranslatable form ~A" form))))))
     (values (reverse forms) vars)))
 
