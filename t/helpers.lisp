@@ -107,9 +107,9 @@
       (5am:is (= -1234567890 (match-integer)))))
   (with-match ("ffff")
     (5am:finishes
-      (5am:is (= #xffff (match-integer 16)))))
+      (5am:is (= #xffff (match-integer :base 16)))))
   (with-match ("1234aBcDeFG")
     (5am:finishes
-      (5am:is (= #x1234ABCDEF (match-integer 16)))
+      (5am:is (= #x1234ABCDEF (match-integer :base 16)))
       (literal "G")
       (match-end))))
