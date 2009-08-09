@@ -1,5 +1,10 @@
 (in-package #:cl-irregsexp)
 
+;;; SBCL bug
+;;; Wrong type inference warning for (and array (not simple-array))
+;;; https://bugs.launchpad.net/sbcl/+bug/410940
+;;; explaining the strange #-sbcl
+
 (declaim-defun-consistent-ftype byte-vector-to-simple-byte-vector 
 				((and byte-vector 
 				      #-sbcl
