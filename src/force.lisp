@@ -51,12 +51,13 @@
   "Return a representation of VAL as a UTF-8 byte-vector, doing the work at compile-time if possible."
   (typecase val
     (null #.(make-byte-vector 0))
-    (simple-string (utf8-encode val))
-    (string (utf8-encode val))
-    (character (utf8-encode (string val)))
     (byte-vector val)
-    (sequence (coerce val 'byte-vector))
-    (t (utf8-encode (force-string val)))))
+    (simple-string (utf8-encode (the simple-string val)))
+    (character (utf8-encode (string val)))
+    ((and sequence (not string)) (coerce val 'byte-vector))
+    (t 
+     (locally (declare (notinline cl-irregsexp.bytestrings::force-string-consistent-internal))
+       (utf8-encode (the simple-string (force-string val)))))))
 
 
 
