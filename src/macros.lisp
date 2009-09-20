@@ -13,8 +13,14 @@
 (defmacro read-only-load-time-value (form)
   `(load-time-value ,form t))
 
+(defun function-name-p (name)
+  (or (symbolp name) 
+      (and (listp name) (eq (first name) 'setf) (symbolp (second name)) (not (cddr name)))))
+
 (defun compiler-macroexpand-1 (form &optional env)
-  (let ((cm (and (listp form) (compiler-macro-function (first form) env))))
+  (let ((cm (and (listp form)
+		 (function-name-p (first form))
+		 (compiler-macro-function (first form) env))))
       (if cm
 	  (funcall *macroexpand-hook* cm form env)
 	  form)))
