@@ -107,20 +107,20 @@
 (defun generate-min-ignore-nil (&rest args)
   `(min ,@(remove-duplicates (remove-if 'not args) :test #'equal)))
 
-(defun generate-unsigned-matcher (&key (base 10) largest max-len min-len)
+(defun generate-unsigned-matcher (&key (base 10) largest length (max-length length) (min-length length))
   (check-type base (integer 2 36))
-  (when (and max-len (constantp max-len) (not largest))
-    (setf largest (expt base (eval max-len))))
+  (when (and max-length (constantp max-length) (not largest))
+    (setf largest (expt base (eval max-length))))
   (let ((val-type `(integer 0 ,(or largest '*))))
     `(let ((val 0) (start pos)
 	   (max-pos 
 	    ,(let ((limit-len 
 		    (when largest
 		      (ceiling (log largest base)))))
-		  (cond ((and (not limit-len) (not max-len))
+		  (cond ((and (not limit-len) (not max-length))
 			 `(length target))
 			(t 
-			 `(+ pos ,(generate-min-ignore-nil `(len-available) limit-len max-len)))))))
+			 `(+ pos ,(generate-min-ignore-nil `(len-available) limit-len max-length)))))))
        (loop for digit of-type (or null (integer 0 ,(1- base))) = ,(generate-digit-matcher base '(peek-one))
 	     while digit
 	     do 
@@ -134,15 +134,15 @@
 		       (the ,val-type (+ (* old-val ,base) digit))))
 	       (eat-unchecked 1))
 	     until (>= pos max-pos))
-       (when (> (+ start ,(or min-len 1)) pos)
+       (when (> (+ start ,(or min-length 1)) pos)
 	 (fail))
        (the ,val-type val))))
 
-(defun generate-integer-matcher (&key (base 10) least largest)
+(defun generate-integer-matcher (&key (base 10) least largest length (max-length length) (min-length length))
   (check-type base (integer 2 36))
 
   (flet ((gen-matcher (&optional (largest largest))
-	   (generate-unsigned-matcher :base base :largest largest)))
+	   (generate-unsigned-matcher :base base :largest largest :max-length max-length :min-length min-length)))
     (cond ((or (not least) (minusp least))
 	   `(if (eql (force-to-target-element-type #\-) (peek-one)) 
 		(progn 
