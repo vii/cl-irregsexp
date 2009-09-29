@@ -27,7 +27,7 @@
 (cl:defpackage #:cl-irregsexp
   (:use #:common-lisp)
   (:use #:cl-irregsexp.bytestrings #:cl-irregsexp.utils)
-  (:import-from #:cl-utilities #:with-unique-names #:once-only)
+  (:import-from #:alexandria #:with-unique-names #:once-only)
   (:export 
    #:match-failed
    #:match-bind

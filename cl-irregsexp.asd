@@ -27,7 +27,7 @@
 				     (:file "split" :depends-on ("bind")))))
   :depends-on (
 	       :iterate
-	       :cl-utilities))
+	       :alexandria))
 
 
 			
