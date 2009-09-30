@@ -26,8 +26,5 @@
 				     (:file "replace" :depends-on ("bind" "byte-vector"))
 				     (:file "split" :depends-on ("bind")))))
   :depends-on (
-	       :iterate
-	       :alexandria))
-
-
-			
+               :alexandria
+               ))
