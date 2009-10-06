@@ -25,7 +25,7 @@
 		,@(loop for o in (butlast options) collect
 			`(with-match-block
 			   (with-fail
-			       (return-from ,choice-block ,(output-code o))
+			     (unsafe-return-from ,choice-block ,(output-code o))
 			     (return-from-match-block)))
 			collect
 			`(restore-pos))
@@ -36,7 +36,7 @@
     `(with-match-block
        (let ((,end pos))
 	 (with-fail
-	     (progn
+	     (macrolet ((match-until-start () ',end))
 	       ,(choice-output-code choice)
 	       ,end)
 	   (setf pos ,end)
@@ -119,8 +119,9 @@
 				       (,possible)
 				       ,@(skip-list-cases i possible)
 				       (t (eat-unchecked ,(1+ i)) (match-block-restart)))))))
-		   (with-fail
-		       ,(output-finish-match-code decider)
+		  (with-fail
+		      (macrolet ((match-until-start () ',end))
+			,(output-finish-match-code decider))
 		     (setf pos (1+ ,end)) 
 		     (match-block-restart))))
 	   ,end))))

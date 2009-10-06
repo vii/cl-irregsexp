@@ -124,3 +124,7 @@
   (define-alist-get alist-get assoc cdr acons)
   (define-alist-get ralist-get rassoc car racons))
 
+(defmacro unsafe-return-from (block &optional value)
+  `(locally
+       (declare #.*optimize-unsafe*)
+     (return-from ,block ,value)))

@@ -20,7 +20,7 @@
       (5am:is (not present)))))
 
 (5am:test find-random
-  (macrolet ((f (needle )
+  (macrolet ((f (needle)
 	       `(5am:for-all ((haystack (5am:gen-string :length (5am:gen-integer :max 100 :min 0))))
 		  (let ((present (search ,needle haystack)))
 		    (5am:is (equalp present

@@ -1,62 +1,77 @@
 (in-package #:cl-irregsexp)
 
-(defun-speedy concatenate-sequences (prototype sequences)
-  (etypecase prototype
-    (string
-     (let ((*print-pretty* nil))
-       (with-output-to-string (out)
-         (dolist (el sequences)
-           (write-string el out)))))
-    (byte-vector
-     (cond
-       ((rest sequences)
-        (let ((len (loop
-                      :for s :in sequences
-                      :summing (length (the byte-vector s)))))
-          (let ((ret (make-byte-vector len)) (i 0))
-            (loop :for a :in sequences :do
-               (let ((s (force-simple-byte-vector a)))
-                 (replace ret s :start1 i)
-                 (incf i (length s))))
-            ret)))
-       (t
-        (force-byte-vector (first sequences)))))))
+(defun replace-concatenate-sequences (prototype total-length sequences)
+  (declare (optimize speed) (type array sequences) 
+	   (type array prototype) 
+	   (type fixnum total-length))
+  (cond ((= 1 (length sequences))
+	 (aref sequences 0))
+	(t
+	 (let ((result 
+		(make-array 
+		 total-length 
+		 :element-type (array-element-type prototype))) 
+	       (i 0))
+	   (declare (type fixnum i))
+	   (macrolet ((gen (&rest types)
+			`(etypecase prototype
+			     ,@(loop for type in types collect
+				     `(,type 
+				       (loop for s across sequences
+					     do 
+					     (let ((s (,(concat-sym 'force-simple- type) (the ,type s))))
+					       (declare (type ,(concat-sym 'simple- type) s result) 
+							#.*optimize-unsafe*)
+					       (replace result s :start1 i)
+					       (incf i (length s)))))))))
+	     (gen byte-vector string))
+	   (values
+	    result
+	    (floor (length result) 2))))))
 
-(defmacro match-replace-helper (string &body match-replacements)
-  (with-unique-names (before replacement-text remaining)
-    `(let (,replacement-text)
-       (if-match-bind (,before (or ,@(loop
-                                        :for (match replacement) :in match-replacements
-                                        :collect `(progn
-                                                    ,match
-                                                    '(setf ,replacement-text (force-to-target-sequence ,replacement))))
-                                   (last))
-                               ,remaining)
-                      ,string
-                      (values ,before ,replacement-text ,remaining)
-                      nil))))
+(defmacro match-replace-helper (string &key op after result match-replacements)
+  (with-unique-names (start before results-len add)
+    `(let ((,start 0) (,before 0) (,results-len 0))
+       (declare (type integer-match-index ,start ,before)
+		(type fixnum ,results-len)
+	       (dynamic-extent ,start ,before ,results-len))
+	 (flet ((,add (x) 
+		  (let ((len (length x))) 
+		    (unless (zerop len) 
+		      (incf ,results-len len) 
+		      (vector-push-extend x ,result)))))
+	   (declare (inline ,add) (dynamic-extent #',add))
+       (match-bind 
+	  (,op '(setf ,start pos)
+	       t
+	       (or ,@(loop for (match replacement) in match-replacements
+			   collect 
+			   `(progn
+			      ,match
+			      '(,add (target-subseq ,start (match-until-start)))
+			      '(,add (force-to-target-sequence ,replacement))))
+		     (progn (last) '(,add (target-subseq ,start pos))))
+	       ,@(when after `('(,add ,after))))
+	  ,string)
+       (replace-concatenate-sequences
+	,string
+	,results-len
+	,result)))))
+	
 
 (defmacro match-replace-one (string &body match-replacements)
   "As match-replace-all but at most one replacement is made"
-  (once-only (string)
-    `(concatenate-sequences ,string (multiple-value-list (match-replace-helper ,string ,@match-replacements)))))
+  (with-unique-names (result)
+    (once-only (string)
+      `(let ((,result (make-array 3 :fill-pointer 0 :adjustable nil)) )
+	 (declare (dynamic-extent ,result))
+	 (match-replace-helper ,string :result ,result :op progn :after (match-remaining) :match-replacements ,match-replacements)))))
 
 (defmacro match-replace-all (string &body match-replacements)
   "For each (match replacment) in MATCH-REPLACEMENTS replace each value of match with the value of replacement in STRING"
   (with-unique-names (result)
     (once-only (string)
-      `(concatenate-sequences
-        ,string
-        (let ((,result nil))
-          (loop
-             (multiple-value-bind (before replacement remaining)
-                 (match-replace-helper ,string ,@match-replacements)
-               (unless (zerop (length before))
-                 (push before ,result))
-               (unless (zerop (length replacement))
-                 (push replacement ,result))
-               (when (zerop (length remaining))
-                 (return))
-               (setf ,string remaining)))
-          ;; OPTIMIZATION: this nreverse could be avoided, but it should be negligable compared to the rest
-          (nreverse ,result))))))
+      `(let ((,result (make-array (length ,string) :fill-pointer 0 :adjustable t)))
+	 (declare (dynamic-extent ,result))
+	 (match-replace-helper ,string :result ,result :op * :match-replacements ,match-replacements)))))
+

@@ -12,7 +12,8 @@
 	       (:module :src
 			:components (
 				     (:file "packages")
-				     (:file "macros" :depends-on ("packages"))
+				     (:file "opt" :depends-on ("packages"))
+				     (:file "macros" :depends-on ("opt"))
 				     (:file "byte-vector" :depends-on ("packages" "macros"))
 				     (:file "utf8" :depends-on ("macros" "byte-vector"))
 				     (:file "force"  :depends-on ("utf8"))

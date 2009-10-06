@@ -3,19 +3,28 @@
 (deftype integer-match-index ()
   `(integer 0 ,(floor most-positive-fixnum 3)))
 
-(defmacro fail ()
+(defun fail ()
   (error "fail called outside a with-fail"))
+
+(defun certainly-not-returning (statements)
+  (loop for statement in statements
+	thereis (and (listp statement)
+		     (case (first statement)
+		       ((error return-from unsafe-return-from) t)))))
 
 (defmacro with-fail (body &body fail-actions)
   (assert fail-actions)
-  `(flet ((fail () ,@fail-actions (error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))
-     (declare (ftype (function nil nil) fail) (ignorable #'fail) (dynamic-extent #'fail))
+  `(flet ((fail () ,@fail-actions 
+		,@(unless (certainly-not-returning fail-actions)
+			 `((error "Fail must not return: ~A (in ~A)" ',fail-actions ',body)))))
+     (declare (ignorable #'fail) (dynamic-extent #'fail) (inline fail))
      ,body))
 
 (defmacro with-save-restore-pos (&body body)
   (with-unique-names (saved-pos)
     `(let ((,saved-pos pos))
-       (declare (dynamic-extent ,saved-pos) 		  
+       (declare (dynamic-extent ,saved-pos)
+		(type integer-match-index ,saved-pos)
 		#+ccl (ignorable ,saved-pos) ; ClozureCL 1.3 will
 					     ; sometimes issue a
 					     ; spurious warning about
@@ -23,7 +32,7 @@
 					     ; ,saved-pos
 		)
        (flet ((restore-pos () (setf pos ,saved-pos)))
-	 (declare (dynamic-extent #'restore-pos))
+	 (declare (dynamic-extent #'restore-pos) (inline restore-pos))
 	 ,@body))))
 
 (defmacro with-match-block (&body body)
@@ -33,12 +42,11 @@
 	  ,restart
 	  (return-from ,match-block
 	    (macrolet ((match-block-restart ()
-			 `(locally (declare (optimize speed (safety 0)))
+			 `(locally (declare #.*optimize-unsafe*)
 			    (go ,',restart)))
 		       (return-from-match-block (&optional value)
 			 (once-only (value)
-			   `(locally (declare (optimize speed (safety 0)))
-			      (return-from  ,',match-block ,value)))))
+			   `(unsafe-return-from  ,',match-block ,value))))
 	      (locally ,@body)))))))
 
 (with-define-specialized-match-functions
@@ -51,7 +59,7 @@
   (defmacro check-len-available (len)
     (once-only (len)
       `(locally
-	   (declare (type integer-match-index ,len pos) (optimize speed (safety 0)))
+	   (declare (type integer-match-index ,len pos) #.*optimize-unsafe*)
 	 (when (> (+ pos ,len) (length target))
 	   (fail))
 	 (values))))
@@ -61,7 +69,7 @@
       `(locally    
 	   (declare (type integer-match-index ,len pos))
 	 (check-len-available ,len)
-	 (subseq target pos (+ pos ,len)))))
+	 (target-subseq pos (+ pos ,len)))))
 
   (defmacro eat (&optional (len 1))
     (once-only (len)
@@ -71,13 +79,13 @@
 
   (defmacro eat-unchecked (&optional (len 1))
     `(locally
-	 (declare (optimize speed (safety 0)) (type integer-match-index pos))
+	 (declare #.*optimize-unsafe* (type integer-match-index pos))
        (incf pos ,len) (values)))
 
   (defmacro elt-target (i)
     (once-only (i)
       `(locally
-	   (declare (optimize speed (safety 0)) (type integer-match-index ,i))
+	   (declare #.*optimize-unsafe* (type integer-match-index ,i))
 	 (elt target ,i))))
 
   (defmacro peek-one-unchecked (&optional (i 0))
@@ -93,6 +101,14 @@
     (let ((s (force-to-target-sequence c)))
       (assert (= 1 (length s)))
       (elt s 0)))
+
+  (defmacro target-subseq (start end)
+    (once-only (start end)
+     `(locally
+	  (declare #.*optimize-unsafe* (type integer-match-index ,start ,end))
+	(cond ((and (zerop ,start) (= (length target) ,end)) target)
+	      (t
+	       (subseq target ,start ,end))))))
 
   (defmacro dynamic-literal (v)
     `(let ((value (force-to-target-sequence ,v)))
@@ -112,7 +128,7 @@
   (check-type type symbol)
   `(with-specialized-match-functions (,type)
      (let ((target (force-to-target-sequence ,target)) (pos 0))
-       (declare (type ,type target) (type integer-match-index pos) (optimize speed))
+       (declare (type ,type target) (type integer-match-index pos) (dynamic-extent pos) (optimize speed))
        ,(output-code (simplify-seq body)))))
 
 (defmacro with-match ( (target &key (on-failure '(error 'match-failed))) &body body)
@@ -125,6 +141,7 @@
 		  (,s ()
 		    (with-match-env (simple-string ,target)
 		    ,@body)))
+	     (declare (dynamic-extent #',bv #',s))
 	     (etypecase ,target
 	       (null (setf ,target "") (,s))
 	       (byte-vector (,bv))

@@ -4,7 +4,7 @@
   '(
     (macrolet . error)
     (quote . error)
-    
+
     (+ . match-one-or-more)
     (* . match-zero-or-more)
     (progn . progn)
@@ -76,12 +76,17 @@
 	      (cond ((not form))
 		    ((eql t form)
 		     (add
-		      `(match-until-and-eat 
+		      `(match-until-internal
 			(progn ,@(or (recurse (list (pop bindings))) (list `(match-end)))))))
 		    ((listp form)
 		     (cond 
 		       ((eq 'quote (first form))
 			(add (second form)))
+		       ((eq 'declare (first form))
+			(add form))
+		       ((eq 'let (first form))
+			(add `(let ,(second form)
+				,@(recurse (cddr form)))))
 		       ((eq 'macrolet (first form))
 			(destructuring-bind (bindings &body body)
 			    (rest form)
@@ -109,7 +114,7 @@
 				 (match-until-and-eat 
 				  (progn ,@(or (recurse (list (pop bindings))) (list `(match-end))))))))
 		    		    
-		    (t (error "Untranslatable form ~A" form))))))
+		    (t (error "Unsyntactical cl-irregsexp binding form ~S" form))))))
     (values (reverse forms) vars)))
 
 (defmacro match-bind-internal (args-for-with-match bindings &body body &environment env)

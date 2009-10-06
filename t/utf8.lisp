@@ -73,7 +73,7 @@
   (loop for n below (min char-code-limit #x200000)
 	for c = (code-char n)
 	when c do 
-	(let ((encoded (make-bad-utf8-sequence n)))) 
+	(let ((encoded (make-bad-utf8-sequence n)))
 	;; 5am:is is too slow
-	  (assert (string= (utf8-decode encoded) (string c)))))
+	  (assert (string= (utf8-decode encoded) (string c))))))
 

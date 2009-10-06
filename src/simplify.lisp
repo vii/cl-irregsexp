@@ -25,10 +25,12 @@
        ,(when (eq (symbol-package name) (symbol-package 'simplifier))
 	      `(defmacro ,name (&whole ,whole &rest ,unused)
 		 (declare (ignore ,unused))
-		 (with-unique-names (saved-pos)
-		   `(let ((,saved-pos pos))
+		 (with-unique-names (start-pos)
+		   `(let ((,start-pos pos))
+		      (declare (type integer-match-index ,start-pos) 
+			       (dynamic-extent ,start-pos))
 		      ,(output-simplified ,whole)
-		      (subseq target ,saved-pos pos)))))
+		      (target-subseq ,start-pos pos)))))
        ',name)))
 
 (defun simplify (form)
@@ -156,7 +158,7 @@
 		 (split-choice-prefix c)
 	       (cond 
 		 ((match-end-p first)
-		  (setf end rest))
+		  (setf end `(progn ,@rest)))
 		 ((const-p first)
 		  (push (make-path :prefix (const-value first) :after rest) paths))
 		 (t

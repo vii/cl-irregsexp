@@ -8,7 +8,7 @@
 	     (progn
 	       ,@body)
 	   (restore-pos)
-	   (return-from ,try-match-block 'match-failed))))))
+	   (unsafe-return-from ,try-match-block 'match-failed))))))
 
 
 (with-define-specialized-match-functions
@@ -16,7 +16,7 @@
     (output-match-until-code (simplify-seq matches)))
   
   (defmacro match-until-and-eat (&rest matches)
-    `(subseq target pos (match-until-internal ,@matches))))
+    `(target-subseq pos (match-until-internal ,@matches))))
 
 (defmacro match-all (&rest options)
   `(with-save-restore-pos
@@ -90,7 +90,6 @@
 (defsimplifier match-zero-or-more (&rest matches)
   `(match-multiple () ,@matches))
 
-
 (defsimplifier match-one-whitespace ()
   `(match-any (literal #\Space) (literal #\Tab) (literal #\Linefeed) (literal #\Return) (literal #\Page)))
 
@@ -129,7 +128,7 @@
 	       (setf val
 		     (let ((old-val val))
 			 ,(when largest 
-				`(declare ,@(when (<= largest most-positive-fixnum) `((optimize (safety 0))))
+				`(declare ,@(when (<= largest most-positive-fixnum) `(,*optimize-unsafe*))
 					  (type (integer 0 ,(1- (ceiling largest base))) old-val)))
 		       (the ,val-type (+ (* old-val ,base) digit))))
 	       (eat-unchecked 1))
