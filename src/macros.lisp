@@ -42,11 +42,13 @@
 	    ((listp expansion) 
 	     (eq 'load-time-value (first expansion))))))))
 
+(defvar *defun-speedy-declaration* '(declare (optimize speed)))
+
 (defmacro defun-speedy (name lambda-list &body body)
   `(progn
      (declaim (inline ,name))
      (defun ,name ,lambda-list
-       (declare (optimize speed))
+       ,*defun-speedy-declaration*
        ,@body)))
 
 (defmacro defun-careful (name lambda-list &body body)
