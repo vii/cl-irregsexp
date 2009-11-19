@@ -1,20 +1,10 @@
 (in-package #:cl-irregsexp)
 
-;;; SBCL bug
-;;; Wrong type inference warning for (and array (not simple-array))
-;;; https://bugs.launchpad.net/sbcl/+bug/410940
-;;; explaining the strange #-sbcl
-
 (declaim-defun-consistent-ftype byte-vector-to-simple-byte-vector 
-				((and byte-vector 
-				      #-sbcl
-				      (not simple-byte-vector))) simple-byte-vector)
+				((and byte-vector (not simple-byte-vector))) simple-byte-vector)
 
 (defun-consistent byte-vector-to-simple-byte-vector (val)
-  (declare (type (and byte-vector 
-		      #-sbcl
-		      (not simple-byte-vector)
-		      ) val))
+  (declare (type (and byte-vector (not simple-byte-vector)) val))
   (the simple-byte-vector (replace (make-byte-vector (length val)) val)))
 
 
@@ -31,7 +21,7 @@
 	     (simple-byte-vector (utf8-decode val))
 	     (byte-vector 
 	      (locally
-		  #-sbcl (declare (type (and byte-vector (not simple-byte-vector)) val))
+		  (declare (type (and byte-vector (not simple-byte-vector)) val))
 		  (utf8-decode (byte-vector-to-simple-byte-vector 
 				val))))
 	     (t  (with-standard-io-syntax (princ-to-string val)))))))
@@ -39,7 +29,7 @@
       (simple-string str)
       (string 
        (locally 
-	 (declare (type (and string (not simple-string)) str))
+	   (declare (type (and string (not simple-string)) str))
 	 (copy-seq str))))))
 
 
@@ -69,7 +59,7 @@
       (simple-byte-vector val)
       (byte-vector 
        (locally
-         #-sbcl (declare (type (and byte-vector (not simple-byte-vector)) val))
+         (declare (type (and byte-vector (not simple-byte-vector)) val))
 	 (byte-vector-to-simple-byte-vector val))))))
 
 
