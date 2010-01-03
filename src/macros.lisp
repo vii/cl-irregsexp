@@ -99,9 +99,17 @@
 (macrolet ((define-alist-get (name get-pair get-value-from-pair add)
 	     `(progn
 		(declaim (inline ,name))
-		(defun ,name (alist key &key (test 'eql))
+		(defun ,name (alist key &key (test #'eql))
+		  (declare (type list alist) (optimize speed))
+		  #-sbcl
 		  (let ((pair (,get-pair key alist :test test)))
-		    (values (,get-value-from-pair pair) pair)))
+		    (values (,get-value-from-pair pair) pair))
+		  #+sbcl ; this version, allows the test to be inlined, unlike standard assoc
+		  (loop for cons in alist
+			for ,(ecase get-value-from-pair
+				    (car `(b . a))
+				    (cdr `(a . b))) = cons
+			do (when (funcall test a key)) (return (values b cons))))
 		(define-setf-expander ,name (place key &key (test ''eql)
 					     &environment env)
 		  (multiple-value-bind (dummies vals newvals setter getter)
