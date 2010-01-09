@@ -109,7 +109,8 @@
 			for ,(ecase get-value-from-pair
 				    (car `(b . a))
 				    (cdr `(a . b))) = cons
-			do (when (funcall test a key)) (return (values b cons))))
+			do (when (funcall test a key)
+			     (return (values b cons)))))
 		(define-setf-expander ,name (place key &key (test ''eql)
 					     &environment env)
 		  (multiple-value-bind (dummies vals newvals setter getter)
