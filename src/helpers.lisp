@@ -169,7 +169,7 @@
 	      (,whole-part 	   
 	       (match-unsigned-integer :base ,base)))
 	 (cond ((or (zerop (len-available)) (not (eql (force-to-target-element-type #\.) (peek-one))))
-		,whole-part)
+		(* ,sign ,whole-part))
 	       (t (eat-unchecked 1)
 		  (let ((,old-pos pos))
 		    (let ((,fraction (match-unsigned-integer :base ,base)))
