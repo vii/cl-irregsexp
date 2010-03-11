@@ -159,14 +159,21 @@
 (with-define-specialized-match-functions
   (defmacro match-float (&key (base 10))
     (check-type base (integer 2 36))
-    (with-unique-names (whole-part fraction old-pos)
-      `(let ((,whole-part (match-integer :base ,base)))
+    (with-unique-names (whole-part fraction old-pos sign)
+      `(let ((,sign 	       
+	      (if (eql (force-to-target-element-type #\-) (peek-one)) 
+		  (progn 
+		    (eat-unchecked 1)
+		    -1)
+		  1))
+	      (,whole-part 	   
+	       (match-unsigned-integer :base ,base)))
 	 (cond ((or (zerop (len-available)) (not (eql (force-to-target-element-type #\.) (peek-one))))
 		,whole-part)
 	       (t (eat-unchecked 1)
 		  (let ((,old-pos pos))
 		    (let ((,fraction (match-unsigned-integer :base ,base)))
-		      (* (if (minusp ,whole-part) -1 1) (+ (abs ,whole-part) (/ ,fraction (expt ,base (- pos ,old-pos))))))))))))
+		      (* ,sign (+ ,whole-part (/ ,fraction (expt ,base (- pos ,old-pos))))))))))))
 
   (defmacro match-integer (&rest args)
     (apply 'generate-integer-matcher args))
