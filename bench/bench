@@ -1,0 +1,10 @@
+#! /bin/bash
+
+out="$1"
+name="$(basename -- $out -result)"
+shift
+
+for i in 1 2 3 4 5; do
+    sleep 3 # cool down
+    echo -n $name ""; "$@" | tail --lines=1
+done | tee $out
