@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iostream>
 #include <cassert>
 #include <pcre++.h>
 #include <boost/timer.hpp>
