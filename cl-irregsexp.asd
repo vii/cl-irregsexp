@@ -5,7 +5,7 @@
 (asdf:defsystem #:cl-irregsexp
   :name "cl-irregsexp"
   :author "John Fremlin <john@fremlin.org>"
-  :version "prerelease"
+  :version "1.0"
   :description "More powerful and prettier way of doing text matching, not using regular expressions"
 
   :components (
